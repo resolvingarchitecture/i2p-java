@@ -2,16 +2,17 @@ package ra.i2p;
 
 import net.i2p.router.Router;
 import net.i2p.router.RouterContext;
+import ra.util.SystemSettings;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.Properties;
 import java.util.logging.Logger;
 
 /**
  * TODO: Add Description
- *
  */
-public class I2PRouterUtil {
+class I2PRouterUtil {
 
     private static final Logger LOG = Logger.getLogger(I2PRouterUtil.class.getName());
 
@@ -22,7 +23,13 @@ public class I2PRouterUtil {
             globalRouter = routerContext.router();
             if(globalRouter == null) {
                 LOG.info("Instantiating I2P Router...");
-                File baseDir = OneMFiveAppContext.getInstance().getBaseDir();
+                File baseDir = null;
+                try {
+                    baseDir = SystemSettings.getUserAppHomeDir(".ra","i2p", true);
+                } catch (IOException e) {
+                    LOG.severe(e.getLocalizedMessage());
+                    return null;
+                }
                 String baseDirPath = baseDir.getAbsolutePath();
                 System.setProperty("i2p.dir.base", baseDirPath);
                 System.setProperty("i2p.dir.config", baseDirPath);

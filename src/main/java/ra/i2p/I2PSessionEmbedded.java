@@ -16,6 +16,14 @@ import net.i2p.data.DataFormatException;
 import net.i2p.data.Destination;
 import net.i2p.util.SecureFile;
 import net.i2p.util.SecureFileOutputStream;
+import ra.common.DLC;
+import ra.common.Envelope;
+import ra.common.identity.DID;
+import ra.common.messaging.EventMessage;
+import ra.common.network.*;
+import ra.common.service.Packet;
+import ra.notification.NotificationService;
+import ra.util.JSONParser;
 
 import java.io.*;
 import java.net.URL;
@@ -25,9 +33,9 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.logging.Logger;
 
-public class I2PSensorSessionEmbedded extends BaseSession implements I2PSessionMuxedListener {
+class I2PSessionEmbedded extends BaseSession implements I2PSessionMuxedListener {
 
-    private static final Logger LOG = Logger.getLogger(I2PSensorSessionEmbedded.class.getName());
+    private static final Logger LOG = Logger.getLogger(I2PSessionEmbedded.class.getName());
 
     // I2CP parameters allowed in the config file
     // Undefined parameters use the I2CP defaults
@@ -44,14 +52,16 @@ public class I2PSensorSessionEmbedded extends BaseSession implements I2PSessionM
             "outbound.backupQuantity",
     });
 
+    private I2PService service;
     private I2PSession i2pSession;
     private boolean connected = false;
     private I2PSocketManager socketManager;
     private boolean isTest = false;
     private String address;
 
-    public I2PSensorSessionEmbedded(io.onemfive.network.sensors.i2p.I2PSensor sensor) {
-        super(sensor);
+    public I2PSessionEmbedded(I2PService service) {
+        super();
+        this.service = service;
     }
 
     public String getAddress() {
@@ -78,16 +88,13 @@ public class I2PSensorSessionEmbedded extends BaseSession implements I2PSessionM
     @Override
     public boolean open(String i2pAddress) {
         address = i2pAddress;
-        NetworkNode localNode = sensor.getSensorManager().getPeerManager().getLocalNode();
-        NetworkPeer localI2PPeer;
-        if(localNode.getNetworkPeer(Network.I2P)!=null) {
-            localI2PPeer = localNode.getNetworkPeer(Network.I2P);
-        } else {
-            localI2PPeer = new NetworkPeer(Network.I2P, localNode.getNetworkPeer().getDid().getUsername(), localNode.getNetworkPeer().getDid().getPassphrase());
-            localNode.addNetworkPeer(localI2PPeer);
-        }
+        NetworkPeer localI2PPeer = service.getNetworkState().localPeer;
         // read the local destination key from the key file if it exists
-        File destinationKeyFile = new File(sensor.getDirectory(), localI2PPeer.getDid().getUsername());
+        String alias = localI2PPeer.getDid().getUsername();
+        if(alias==null) {
+            alias = "anon";
+        }
+        File destinationKeyFile = new File(service.getDirectory(), alias);
         FileReader fileReader = null;
         try {
             fileReader = new FileReader(destinationKeyFile);
@@ -158,29 +165,23 @@ public class I2PSensorSessionEmbedded extends BaseSession implements I2PSessionM
             String fingerprint = localDestination.calculateHash().toBase64();
             String algorithm = localDestination.getPublicKey().getType().getAlgorithmName();
             // Ensure network is correct
-            localI2PPeer.setNetwork(Network.I2P);
+            localI2PPeer.setNetwork(I2PService.class.getName());
             // Add destination to PK and update DID info
             localI2PPeer.getDid().setStatus(DID.Status.ACTIVE);
             localI2PPeer.getDid().setDescription("DID for I2PSensorSession");
             localI2PPeer.getDid().setAuthenticated(true);
             localI2PPeer.getDid().setVerified(true);
-            localI2PPeer.getDid().getPublicKey().setAlias(localNode.getNetworkPeer().getDid().getUsername());
+            localI2PPeer.getDid().getPublicKey().setAlias(alias);
             localI2PPeer.getDid().getPublicKey().isIdentityKey(true);
             localI2PPeer.getDid().getPublicKey().setAddress(address);
             localI2PPeer.getDid().getPublicKey().setBase64Encoded(true);
             localI2PPeer.getDid().getPublicKey().setFingerprint(fingerprint);
             localI2PPeer.getDid().getPublicKey().setType(algorithm);
-            while(localNode.getNetworkPeer().getId()==null) {
-                Wait.aMs(100);
-            }
-            localI2PPeer.setId(localNode.getNetworkPeer().getId());
-            sensor.getSensorManager().getPeerManager().savePeer(localI2PPeer, true);
         }
-        if(((io.onemfive.network.sensors.i2p.I2PSensor)sensor).router.getConfigSetting("i2np.udp.port") != null) {
-            sensor.getNetworkState().virtualPort = Integer.parseInt(((io.onemfive.network.sensors.i2p.I2PSensor)sensor).router.getConfigSetting("i2np.udp.port"));
+        if(service.router.getConfigSetting("i2np.udp.port") != null) {
+            service.getNetworkState().virtualPort = Integer.parseInt(service.router.getConfigSetting("i2np.udp.port"));
         }
-        sensor.getNetworkState().localPeer = localI2PPeer;
-        sensor.updateModelListeners();
+        service.getNetworkState().localPeer = localI2PPeer;
         LOG.info("I2PSensor Address in base64: " + localI2PPeer.getDid().getPublicKey().getAddress());
         LOG.info("I2PSensor Fingerprint (hash) in base64: " + localI2PPeer.getDid().getPublicKey().getFingerprint());
         return true;
@@ -259,7 +260,7 @@ public class I2PSensorSessionEmbedded extends BaseSession implements I2PSessionM
             packet.statusCode = NetworkPacket.DESTINATION_PEER_REQUIRED;
             return false;
         }
-        if (packet.getToPeer().getNetwork() != Network.I2P) {
+        if (packet.getToPeer().getNetwork() != I2PService.class.getName()) {
             LOG.warning("Not a packet for I2P.");
             packet.statusCode = NetworkPacket.DESTINATION_PEER_WRONG_NETWORK;
             return false;
@@ -295,56 +296,10 @@ public class I2PSensorSessionEmbedded extends BaseSession implements I2PSessionM
             packet.errorMessage = errMsg;
             if("Already closed".equals(e.getLocalizedMessage())) {
                 LOG.info("I2P Connection closed. Could be no internet access or getting blocked. Assume blocked for re-route. If not blocked, I2P will automatically re-establish connection when network access returns.");
-                sensor.updateStatus(SensorStatus.NETWORK_BLOCKED);
+                service.getNetworkState().networkStatus = NetworkStatus.NETWORK_BLOCKED;
             }
             return false;
         }
-    }
-
-    @Override
-    public boolean send(NetworkRequestOp requestOp) {
-        waitingOps.put(requestOp.id, requestOp);
-        return send((NetworkOp)requestOp);
-    }
-
-    @Override
-    public boolean notify(NetworkNotifyOp notifyOp) {
-        return send(notifyOp);
-    }
-
-    private boolean send(NetworkOp op) {
-        op.start = System.currentTimeMillis();
-        String content = op.toJSON();
-        LOG.info("Content to send: " + content);
-        if (content.length() > 31500) {
-            // Just warn for now
-            // TODO: Split into multiple serialized packets
-            LOG.warning("Content longer than 31.5kb. May have issues.");
-        }
-        try {
-            Destination toDestination = i2pSession.lookupDest(op.toNetworkAddress);
-            if(toDestination == null) {
-                LOG.warning("I2P Peer To Destination not found.");
-                return false;
-            }
-            I2PDatagramMaker m = new I2PDatagramMaker(i2pSession);
-            byte[] payload = m.makeI2PDatagram(content.getBytes());
-            if(i2pSession.sendMessage(toDestination, payload, I2PSession.PROTO_UNSPECIFIED, I2PSession.PORT_ANY, I2PSession.PORT_ANY)) {
-                LOG.info("I2P Message sent.");
-            } else {
-                LOG.warning("I2P Message sending failed.");
-                return false;
-            }
-        } catch (I2PSessionException e) {
-            String errMsg = "Exception while sending I2P message: " + e.getLocalizedMessage();
-            LOG.warning(errMsg);
-            if("Already closed".equals(e.getLocalizedMessage())) {
-                LOG.info("I2P Connection closed. Could be no internet access or getting blocked. Assume blocked for re-route. If not blocked, I2P will automatically re-establish connection when network access returns.");
-                sensor.updateStatus(SensorStatus.NETWORK_BLOCKED);
-            }
-            return false;
-        }
-        return true;
     }
 
     /**
@@ -400,13 +355,11 @@ public class I2PSensorSessionEmbedded extends BaseSession implements I2PSessionM
                 String type = (String) pm.get("type");
                 LOG.info("Type discovered: " + type);
                 Object obj = Class.forName(type).getConstructor().newInstance();
-                if(obj instanceof NetworkOp) {
-                    handle((NetworkOp)obj);
-                } else if(obj instanceof NetworkPacket) {
+                if(obj instanceof NetworkPacket) {
                     NetworkPacket packet = (NetworkPacket) Class.forName(type).getConstructor().newInstance();
                     packet.fromMap(pm);
                     Envelope e = packet.getEnvelope();
-                    if (!sensor.sendIn(e)) {
+                    if (!service.send(e)) {
                         LOG.warning("Unsuccessful sending of JSON event to bus.");
                     }
                 } else {
@@ -416,7 +369,7 @@ public class I2PSensorSessionEmbedded extends BaseSession implements I2PSessionM
                 LOG.info("Creating HTML Event Message for Notification Service...");
                 Envelope e = Envelope.eventFactory(EventMessage.Type.HTML);
                 e.setURL(new URL("http://"+address+".i2p"));
-                NetworkPeer from = new NetworkPeer(Network.I2P);
+                NetworkPeer from = new NetworkPeer(I2PService.class.getName());
                 from.getDid().getPublicKey().setAddress(address);
                 from.getDid().getPublicKey().setFingerprint(fingerprint);
                 e.setDID(from.getDid());
@@ -424,7 +377,7 @@ public class I2PSensorSessionEmbedded extends BaseSession implements I2PSessionM
                 m.setName(fingerprint);
                 m.setMessage(strPayload);
                 DLC.addRoute(NotificationService.class, NotificationService.OPERATION_PUBLISH, e);
-                if(!sensor.sendIn(e)) {
+                if(!service.send(e)) {
                     LOG.warning("Unsuccessful sending of HTML event to bus.");
                 }
             }
@@ -483,7 +436,7 @@ public class I2PSensorSessionEmbedded extends BaseSession implements I2PSessionM
     @Override
     public void reportAbuse(I2PSession i2PSession, int severity) {
         LOG.warning("I2P Session reporting abuse. Severity="+severity);
-        ((io.onemfive.network.sensors.i2p.I2PSensor)sensor).reportRouterStatus();
+        service.reportRouterStatus();
     }
 
     /**
@@ -495,7 +448,7 @@ public class I2PSensorSessionEmbedded extends BaseSession implements I2PSessionM
     @Override
     public void disconnected(I2PSession session) {
         LOG.warning("I2P Session reporting disconnection.");
-        ((io.onemfive.network.sensors.i2p.I2PSensor)sensor).reportRouterStatus();
+        service.reportRouterStatus();
     }
 
     /**
@@ -509,7 +462,7 @@ public class I2PSensorSessionEmbedded extends BaseSession implements I2PSessionM
     @Override
     public void errorOccurred(I2PSession session, String message, Throwable throwable) {
         LOG.severe("Router says: "+message+": "+throwable.getLocalizedMessage());
-        ((io.onemfive.network.sensors.i2p.I2PSensor)sensor).reportRouterStatus();
+        service.reportRouterStatus();
     }
 
     private Properties getI2CPOptions() {

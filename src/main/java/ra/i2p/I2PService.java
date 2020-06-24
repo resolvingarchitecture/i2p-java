@@ -1,13 +1,5 @@
 package ra.i2p;
 
-import io.onemfive.data.*;
-import io.onemfive.network.NetworkPacket;
-import io.onemfive.network.NetworkState;
-import io.onemfive.network.peers.NetworkPeerDiscovery;
-import io.onemfive.network.sensors.*;
-import io.onemfive.util.Config;
-import io.onemfive.util.Wait;
-import io.onemfive.util.tasks.TaskRunner;
 import net.i2p.client.I2PClient;
 import net.i2p.data.DataHelper;
 import net.i2p.router.CommSystemFacade;
@@ -18,28 +10,35 @@ import net.i2p.util.FileUtil;
 import net.i2p.util.Log;
 import net.i2p.util.OrderedProperties;
 import net.i2p.util.SystemVersion;
+import ra.common.Envelope;
+import ra.common.messaging.MessageProducer;
+import ra.common.network.*;
+import ra.common.route.Route;
+import ra.common.service.NetworkService;
+import ra.common.service.ServiceStatus;
+import ra.common.service.ServiceStatusListener;
+import ra.notification.NotificationService;
+import ra.util.Config;
+import ra.util.SystemSettings;
+import ra.util.Wait;
+import ra.util.tasks.TaskRunner;
 
 import java.io.*;
 import java.net.URISyntaxException;
 import java.net.URL;
-import java.util.Enumeration;
-import java.util.List;
-import java.util.Properties;
+import java.util.*;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 import java.util.logging.Logger;
 
 /**
- * Provides an API for I2P Router as a Sensor.
- * I2P in 1M5 is used as Message-Oriented-Middleware (MOM)
- * supporting real-time anonymous messaging.
- *
+ * Provides an API for I2P Router as a Service.
  */
-public final class I2P extends BaseSensor {
+public final class I2PService extends NetworkService {
 
-    private static final Logger LOG = Logger.getLogger(io.onemfive.network.sensors.i2p.I2PSensor.class.getName());
+    private static final Logger LOG = Logger.getLogger(I2PService.class.getName());
 
-    public static final String I2P_ROUTER_EMBEDDED = "settings.network.i2p.routerEmbedded";
+    public static final String OPERATION_CHECK_ROUTER_STATUS = "CHECK_ROUTER_STATUS";
 
     /**
      * 1 = ElGamal-2048 / DSA-1024
@@ -55,7 +54,7 @@ public final class I2P extends BaseSensor {
     public static final NetworkPeer seedAI2P;
 
     static {
-        seedAI2P = new NetworkPeer(Network.I2P);
+        seedAI2P = new NetworkPeer("I2P");
         seedAI2P.setId("+sKVViuz2FPsl/XQ+Da/ivbNfOI=");
         seedAI2P.getDid().getPublicKey().setAddress("ygfTZm-Cwhs9FI05gwHC3hr360gpcp103KRUSubJ2xvaEhFXzND8emCKXSAZLrIubFoEct5lmPYjXegykkWZOsjdvt8ZWZR3Wt79rc3Ovk7Ev4WXrgIDHjhpr-cQdBITSFW8Ay1YvArKxuEVpIChF22PlPbDg7nRyHXOqmYmrjo2AcwObs--mtH34VMy4R934PyhfEkpLZTPyN73qO4kgvrBtmpOxdWOGvlDbCQjhSAC3018xpM0qFdFSyQwZkHdJ9sG7Mov5dmG5a6D6wRx~5IEdfufrQi1aR7FEoomtys-vAAF1asUyX1UkxJ2WT2al8eIuCww6Nt6U6XfhN0UbSjptbNjWtK-q4xutcreAu3FU~osZRaznGwCHez5arT4X2jLXNfSEh01ICtT741Ki4aeSrqRFPuIove2tmUHZPt4W6~WMztvf5Oc58jtWOj08HBK6Tc16dzlgo9kpb0Vs3h8cZ4lavpRen4i09K8vVORO1QgD0VH3nIZ5Ql7K43zAAAA");
         seedAI2P.getDid().getPublicKey().setFingerprint("bl4fi-lFyTPQQkKOPuxlF9zPGEdgtAhtKetnyEwj8t0=");
@@ -64,16 +63,11 @@ public final class I2P extends BaseSensor {
         seedAI2P.getDid().getPublicKey().setBase64Encoded(true);
     }
 
-    protected Properties properties;
-
     // I2P Router and Context
     private File i2pDir;
-    RouterContext routerContext;
+    private RouterContext routerContext;
     Router router;
     protected CommSystemFacade.Status i2pRouterStatus;
-
-    private String i2pBaseDir;
-    protected String i2pAppDir;
 
     private Thread taskRunnerThread;
     private Long startTimeBlockedMs = 0L;
@@ -82,51 +76,47 @@ public final class I2P extends BaseSensor {
     private static final Integer RESTART_ATTEMPTS_UNTIL_HARD_RESTART = 3;
     private boolean embedded = true;
     private boolean isTest = false;
+    private TaskRunner taskRunner;
+    private Map<String, NetworkSession> sessions = new HashMap<>();
 
-    // Tasks
-    private CheckRouterStats checkRouterStats;
-    private NetworkPeerDiscovery discovery;
-
-    public I2P() {
-        super(Network.I2P);
-        taskRunner = new TaskRunner(1, 2);
-    }
-
-    public I2P(SensorManager sensorManager) {
-        super(sensorManager, Network.I2P);
-        taskRunner = new TaskRunner(1, 2);
+    public I2PService(MessageProducer messageProducer, ServiceStatusListener listener) {
+        super(messageProducer, listener);
     }
 
     @Override
-    public String[] getOperationEndsWith() {
-        return new String[]{".i2p"};
+    public void handleDocument(Envelope e) {
+        super.handleDocument(e);
+        Route r = e.getRoute();
+        switch(r.getOperation()) {
+            case OPERATION_CHECK_ROUTER_STATUS: {
+
+                break;
+            }
+            default: {
+                LOG.warning("Operation ("+r.getOperation()+") not supported. Sending to Dead Letter queue.");
+                deadLetter(e);
+            }
+        }
     }
 
-    @Override
-    public String[] getURLBeginsWith() {
-        return new String[]{"i2p"};
-    }
-
-    @Override
-    public String[] getURLEndsWith() {
-        return new String[]{".i2p"};
-    }
-
-    @Override
-    public SensorSession establishSession(String address, Boolean autoConnect) {
+    private NetworkSession establishSession(String address, Boolean autoConnect) {
         if(address==null) {
             address = "default";
         }
         if(sessions.get(address)==null) {
-            SensorSession sensorSession = embedded ? new I2PSensorSessionEmbedded(this) : new io.onemfive.network.sensors.i2p.I2PSensorSessionExternal(this);
-            sensorSession.init(properties);
-            sensorSession.open(null);
+            NetworkSession session = embedded ? new I2PSessionEmbedded(this) : new I2PSessionExternal(this);
+            session.init(config);
+            session.open(null);
             if (autoConnect) {
-                sensorSession.connect();
+                session.connect();
             }
-            sessions.put(address, sensorSession);
+            sessions.put(address, session);
         }
         return sessions.get(address);
+    }
+
+    protected Request buildRequest(NetworkPeer networkPeer, NetworkPeer networkPeer1) {
+        return null;
     }
 
     /**
@@ -135,21 +125,16 @@ public final class I2P extends BaseSensor {
      *                 To DID must contain base64 encoded I2P destination key.
      * @return boolean was successful
      */
-    @Override
-    public boolean sendOut(NetworkPacket packet) {
+    public boolean send(NetworkPacket packet) {
         LOG.info("Send I2P Message Out Packet received...");
-        SensorSession sensorSession = establishSession(null, true);
-        return sensorSession.send(packet);
+        NetworkSession session = establishSession(null, true);
+        return session.send(packet);
     }
 
     public File getDirectory() {
-        if(i2pDir==null) {
-            i2pDir = new File(i2pBaseDir);
-        }
         return i2pDir;
     }
 
-    @Override
     public void updateState(NetworkState networkState) {
         if(this.networkState.params.get(Router.PROP_HIDDEN)!=null
                 && networkState.params.get(Router.PROP_HIDDEN)!=null
@@ -161,83 +146,84 @@ public final class I2P extends BaseSensor {
         }
     }
 
-    @Override
     public boolean start(Properties p) {
-        LOG.info("Starting I2P Sensor...");
-        updateStatus(SensorStatus.INITIALIZING);
-        // I2P Sensor Starting
+        LOG.info("Starting I2P Service...");
+        updateStatus(ServiceStatus.INITIALIZING);
         LOG.info("Loading I2P properties...");
-        properties = p;
-        String isEmbeddedParam = p.getProperty(I2P_ROUTER_EMBEDDED);
-        embedded = "true".equals(isEmbeddedParam);
-        networkState.params.put(I2P_ROUTER_EMBEDDED, isEmbeddedParam);
-        isTest = "true".equals(properties.getProperty("1m5.sensors.i2p.isTest"));
+        try {
+            config = Config.loadFromClasspath("i2p-client.config", p, false);
+        } catch (Exception e) {
+            LOG.severe(e.getLocalizedMessage());
+            return false;
+        }
+        isTest = "true".equals(config.getProperty("ra.i2p.isTest"));
         // Look for another instance installed
         if(System.getProperty("i2p.dir.base")==null) {
-            // Set up I2P Directories within sensors directory
-            i2pBaseDir = properties.getProperty("1m5.dir.sensors") + "/i2p";
-            System.setProperty("i2p.dir.base", i2pBaseDir);
+            // Set up I2P Directories within RA Directory
+            try {
+                i2pDir = SystemSettings.getUserAppHomeDir(".ra", "i2p", true);
+                embedded = true;
+                System.setProperty("i2p.dir.base", i2pDir.getAbsolutePath());
+            } catch (IOException e) {
+                LOG.severe(e.getLocalizedMessage());
+                return false;
+            }
         } else {
-            i2pBaseDir = System.getProperty("i2p.dir.base");
+            i2pDir = new File(System.getProperty("i2p.dir.base"));
+            embedded = false;
         }
-        i2pDir = new File(i2pBaseDir);
+
         if (!i2pDir.exists()) {
             if (!i2pDir.mkdir()) {
-                LOG.severe("Unable to create I2P base directory: " + i2pBaseDir + "; exiting...");
+                LOG.severe("Unable to create I2P base directory: " + i2pDir.getAbsolutePath() + "; exiting...");
                 return false;
             }
         }
-        properties.setProperty("i2p.dir.base", i2pBaseDir);
-        properties.setProperty("1m5.dir.sensors.i2p", i2pBaseDir);
+
         // Config Directory
-        String i2pConfigDir = i2pBaseDir + "/config";
-        File i2pConfigFolder = new File(i2pConfigDir);
-        if(!i2pConfigFolder.exists())
-            if(!i2pConfigFolder.mkdir())
+        File i2pConfigDir = new File(i2pDir, "config");
+        if(!i2pConfigDir.exists())
+            if(!i2pConfigDir.mkdir())
                 LOG.warning("Unable to create I2P config directory: " +i2pConfigDir);
-        if(i2pConfigFolder.exists()) {
-            System.setProperty("i2p.dir.config",i2pConfigDir);
-            properties.setProperty("i2p.dir.config",i2pConfigDir);
+        if(i2pConfigDir.exists()) {
+            System.setProperty("i2p.dir.config",i2pConfigDir.getAbsolutePath());
+            config.setProperty("i2p.dir.config",i2pConfigDir.getAbsolutePath());
         }
         // Router Directory
-        String i2pRouterDir = i2pBaseDir + "/router";
-        File i2pRouterFolder = new File(i2pRouterDir);
-        if(!i2pRouterFolder.exists())
-            if(!i2pRouterFolder.mkdir())
+        File i2pRouterDir = new File(i2pDir,"router");
+        if(!i2pRouterDir.exists())
+            if(!i2pRouterDir.mkdir())
                 LOG.warning("Unable to create I2P router directory: "+i2pRouterDir);
-        if(i2pRouterFolder.exists()) {
-            System.setProperty("i2p.dir.router",i2pRouterDir);
-            properties.setProperty("i2p.dir.router",i2pRouterDir);
+        if(i2pRouterDir.exists()) {
+            System.setProperty("i2p.dir.router",i2pRouterDir.getAbsolutePath());
+            config.setProperty("i2p.dir.router",i2pRouterDir.getAbsolutePath());
         }
         // PID Directory
-        String i2pPIDDir = i2pBaseDir + "/pid";
-        File i2pPIDFolder = new File(i2pPIDDir);
-        if(!i2pPIDFolder.exists())
-            if(!i2pPIDFolder.mkdir())
-                LOG.warning("Unable to create I2P PID directory: "+i2pPIDDir);
-        if(i2pPIDFolder.exists()) {
-            System.setProperty("i2p.dir.pid",i2pPIDDir);
-            properties.setProperty("i2p.dir.pid",i2pPIDDir);
+        File i2pPIDDir = new File(i2pDir, "pid");
+        if(!i2pPIDDir.exists())
+            if(!i2pPIDDir.mkdir())
+                LOG.warning("Unable to create I2P PID directory: "+i2pPIDDir.getAbsolutePath());
+        if(i2pPIDDir.exists()) {
+            System.setProperty("i2p.dir.pid",i2pPIDDir.getAbsolutePath());
+            config.setProperty("i2p.dir.pid",i2pPIDDir.getAbsolutePath());
         }
         // Log Directory
-        String i2pLogDir = i2pBaseDir + "/log";
-        File i2pLogFolder = new File(i2pLogDir);
-        if(!i2pLogFolder.exists())
-            if(!i2pLogFolder.mkdir())
-                LOG.warning("Unable to create I2P log directory: "+i2pLogDir);
-        if(i2pLogFolder.exists()) {
-            System.setProperty("i2p.dir.log",i2pLogDir);
-            properties.setProperty("i2p.dir.log",i2pLogDir);
+        File i2pLogDir = new File(i2pDir,"log");
+        if(!i2pLogDir.exists())
+            if(!i2pLogDir.mkdir())
+                LOG.warning("Unable to create I2P log directory: "+i2pLogDir.getAbsolutePath());
+        if(i2pLogDir.exists()) {
+            System.setProperty("i2p.dir.log",i2pLogDir.getAbsolutePath());
+            config.setProperty("i2p.dir.log",i2pLogDir.getAbsolutePath());
         }
         // App Directory
-        i2pAppDir = i2pBaseDir + "/app";
-        File i2pAppFolder = new File(i2pAppDir);
-        if(!i2pAppFolder.exists())
-            if(!i2pAppFolder.mkdir())
-                LOG.warning("Unable to create I2P app directory: "+i2pAppDir);
-        if(i2pAppFolder.exists()) {
-            System.setProperty("i2p.dir.app", i2pAppDir);
-            properties.setProperty("i2p.dir.app", i2pAppDir);
+        File i2pAppDir = new File(i2pDir,"app");
+        if(!i2pAppDir.exists())
+            if(!i2pAppDir.mkdir())
+                LOG.warning("Unable to create I2P app directory: "+i2pAppDir.getAbsolutePath());
+        if(i2pAppDir.exists()) {
+            System.setProperty("i2p.dir.app", i2pAppDir.getAbsolutePath());
+            config.setProperty("i2p.dir.app", i2pAppDir.getAbsolutePath());
         }
 
         // Running Internal I2P Router
@@ -248,22 +234,22 @@ public final class I2P extends BaseSensor {
         mergeRouterConfig(null);
 
         // Certificates
-        File certDir = new File(i2pBaseDir, "certificates");
+        File certDir = new File(i2pDir, "certificates");
         if(!certDir.exists())
             if(!certDir.mkdir()) {
-                LOG.severe("Unable to create certificates directory in: "+i2pBaseDir+"; exiting...");
+                LOG.severe("Unable to create certificates directory in: "+certDir.getAbsolutePath()+"; exiting...");
                 return false;
             }
         File seedDir = new File(certDir, "reseed");
         if(!seedDir.exists())
             if(!seedDir.mkdir()) {
-                LOG.severe("Unable to create "+i2pBaseDir+"/certificates/reseed directory; exiting...");
+                LOG.severe("Unable to create "+seedDir.getAbsolutePath()+" directory; exiting...");
                 return false;
             }
         File sslDir = new File(certDir, "ssl");
         if(!sslDir.exists())
             if(!sslDir.mkdir()) {
-                LOG.severe("Unable to create "+i2pBaseDir+"/certificates/ssl directory; exiting...");
+                LOG.severe("Unable to create "+sslDir.getAbsolutePath()+" directory; exiting...");
                 return false;
             }
 
@@ -288,11 +274,12 @@ public final class I2P extends BaseSensor {
         if(!copyCertificatesToBaseDir(seedCertificates, sslCertificates))
             return false;
 
-        Wait.aMs(500); // Give the infrastructure a bit of breathing room before saving seeds
-        sensorManager.getPeerManager().savePeer(seedAI2P, true);
-        networkState.seeds.add(seedAI2P);
+        // Set dependent services
+        addDependentService(NotificationService.class);
 
-        updateStatus(SensorStatus.STARTING);
+        Wait.aMs(500); // Give the infrastructure a bit of breathing room before saving seeds
+
+        updateStatus(ServiceStatus.STARTING);
         // Start I2P Router
         LOG.info("Launching I2P Router...");
         RouterLaunch.main(null);
@@ -316,11 +303,8 @@ public final class I2P extends BaseSensor {
 
         if(taskRunner==null) {
             taskRunner = new TaskRunner(2, 2);
+            taskRunner.addTask(new CheckRouterStatus(this,taskRunner));
         }
-
-        checkRouterStats = new io.onemfive.network.sensors.i2p.CheckRouterStats(taskRunner, this);
-        checkRouterStats.setPeriodicity(3 * 1000L);
-        taskRunner.addTask(checkRouterStats);
 
         taskRunnerThread = new Thread(taskRunner);
         taskRunnerThread.setDaemon(true);
@@ -351,7 +335,7 @@ public final class I2P extends BaseSensor {
                 if(!shutdown()) {
                     LOG.warning("Issues shutting down I2P Router. Will attempt to start regardless...");
                 }
-                if(!start(properties)) {
+                if(!start(config)) {
                     LOG.warning("Issues starting I2P Router.");
                     return false;
                 } else {
@@ -359,9 +343,8 @@ public final class I2P extends BaseSensor {
                 }
             } else {
                 LOG.info("Soft restart of I2P Router...");
-                updateStatus(SensorStatus.RESTARTING);
+                updateStatus(ServiceStatus.RESTARTING);
                 router.restart();
-                updateModelListeners();
                 LOG.info("Router hiddenMode="+router.isHidden());
                 LOG.info("I2P Router soft restart completed.");
             }
@@ -374,16 +357,15 @@ public final class I2P extends BaseSensor {
 
     @Override
     public boolean shutdown() {
-        updateStatus(SensorStatus.SHUTTING_DOWN);
+        updateStatus(ServiceStatus.SHUTTING_DOWN);
         LOG.info("I2P router stopping...");
-        checkRouterStats.forceStop();
         taskRunner.shutdown();
         if(taskRunnerThread!=null) {
             taskRunnerThread.interrupt();
         }
         taskRunner = null;
         taskRunnerThread = null;
-        for(SensorSession s : sessions.values()) {
+        for(NetworkSession s : sessions.values()) {
             s.disconnect();
             s.close();
         }
@@ -392,23 +374,22 @@ public final class I2P extends BaseSensor {
             router.shutdown(Router.EXIT_HARD);
         }
         router = null;
-        updateStatus(SensorStatus.SHUTDOWN);
+        updateStatus(ServiceStatus.SHUTDOWN);
         LOG.info("I2P router stopped.");
         return true;
     }
 
     @Override
     public boolean gracefulShutdown() {
-        updateStatus(SensorStatus.GRACEFULLY_SHUTTING_DOWN);
+        updateStatus(ServiceStatus.GRACEFULLY_SHUTTING_DOWN);
         LOG.info("I2P router gracefully stopping...");
-        checkRouterStats.forceStop();
         taskRunner.shutdown();
         if(taskRunnerThread!=null) {
             taskRunnerThread.interrupt();
         }
         taskRunner = null;
         taskRunnerThread = null;
-        for(SensorSession s : sessions.values()) {
+        for(NetworkSession s : sessions.values()) {
             s.disconnect();
             s.close();
         }
@@ -417,7 +398,7 @@ public final class I2P extends BaseSensor {
             router.shutdownGracefully(Router.EXIT_GRACEFUL);
         }
         router = null;
-        updateStatus(SensorStatus.GRACEFULLY_SHUTDOWN);
+        updateStatus(ServiceStatus.GRACEFULLY_SHUTDOWN);
         LOG.info("I2P router gracefully stopped.");
         return true;
     }
@@ -426,112 +407,104 @@ public final class I2P extends BaseSensor {
         switch (i2pRouterStatus) {
             case UNKNOWN:
                 LOG.info("Testing I2P Network...");
-                updateStatus(SensorStatus.NETWORK_CONNECTING);
+                updateNetworkStatus(NetworkStatus.NETWORK_CONNECTING);
                 break;
             case IPV4_DISABLED_IPV6_UNKNOWN:
                 LOG.info("IPV4 Disabled but IPV6 Testing...");
-                updateStatus(SensorStatus.NETWORK_CONNECTING);
+                updateNetworkStatus(NetworkStatus.NETWORK_CONNECTING);
                 break;
             case IPV4_FIREWALLED_IPV6_UNKNOWN:
                 LOG.info("IPV4 Firewalled but IPV6 Testing...");
-                updateStatus(SensorStatus.NETWORK_CONNECTING);
+                updateNetworkStatus(NetworkStatus.NETWORK_CONNECTING);
                 break;
             case IPV4_SNAT_IPV6_UNKNOWN:
                 LOG.info("IPV4 SNAT but IPV6 Testing...");
-                updateStatus(SensorStatus.NETWORK_CONNECTING);
+                updateNetworkStatus(NetworkStatus.NETWORK_CONNECTING);
                 break;
             case IPV4_UNKNOWN_IPV6_FIREWALLED:
                 LOG.info("IPV6 Firewalled but IPV4 Testing...");
-                updateStatus(SensorStatus.NETWORK_CONNECTING);
+                updateNetworkStatus(NetworkStatus.NETWORK_CONNECTING);
                 break;
             case OK:
                 LOG.info("Connected to I2P Network.");
                 restartAttempts = 0; // Reset restart attempts
 
-                updateStatus(SensorStatus.NETWORK_CONNECTED);
+                updateNetworkStatus(NetworkStatus.NETWORK_CONNECTED);
                 break;
             case IPV4_DISABLED_IPV6_OK:
                 LOG.info("IPV4 Disabled but IPV6 OK: Connected to I2P Network.");
                 restartAttempts = 0; // Reset restart attempts
-                updateStatus(SensorStatus.NETWORK_CONNECTED);
+                updateNetworkStatus(NetworkStatus.NETWORK_CONNECTED);
                 break;
             case IPV4_FIREWALLED_IPV6_OK:
                 LOG.info("IPV4 Firewalled but IPV6 OK: Connected to I2P Network.");
                 restartAttempts = 0; // Reset restart attempts
-                updateStatus(SensorStatus.NETWORK_CONNECTED);
+                updateNetworkStatus(NetworkStatus.NETWORK_CONNECTED);
                 break;
             case IPV4_SNAT_IPV6_OK:
                 LOG.info("IPV4 SNAT but IPV6 OK: Connected to I2P Network.");
                 restartAttempts = 0; // Reset restart attempts
-                updateStatus(SensorStatus.NETWORK_CONNECTED);
+                updateNetworkStatus(NetworkStatus.NETWORK_CONNECTED);
                 break;
             case IPV4_UNKNOWN_IPV6_OK:
                 LOG.info("IPV4 Testing but IPV6 OK: Connected to I2P Network.");
                 restartAttempts = 0; // Reset restart attempts
-                updateStatus(SensorStatus.NETWORK_CONNECTED);
+                updateNetworkStatus(NetworkStatus.NETWORK_CONNECTED);
                 break;
             case IPV4_OK_IPV6_FIREWALLED:
                 LOG.info("IPV6 Firewalled but IPV4 OK: Connected to I2P Network.");
                 restartAttempts = 0; // Reset restart attempts
-                updateStatus(SensorStatus.NETWORK_CONNECTED);
+                updateNetworkStatus(NetworkStatus.NETWORK_CONNECTED);
                 break;
             case IPV4_OK_IPV6_UNKNOWN:
                 LOG.info("IPV6 Testing but IPV4 OK: Connected to I2P Network.");
                 restartAttempts = 0; // Reset restart attempts
-                updateStatus(SensorStatus.NETWORK_CONNECTED);
+                updateNetworkStatus(NetworkStatus.NETWORK_CONNECTED);
                 break;
             case IPV4_DISABLED_IPV6_FIREWALLED:
                 LOG.warning("IPV4 Disabled but IPV6 Firewalled. Connected to I2P network.");
-                updateStatus(SensorStatus.NETWORK_CONNECTED);
+                updateNetworkStatus(NetworkStatus.NETWORK_CONNECTED);
                 break;
             case DISCONNECTED:
                 LOG.info("Disconnected from I2P Network.");
-                updateStatus(SensorStatus.NETWORK_STOPPED);
+                updateNetworkStatus(NetworkStatus.NETWORK_STOPPED);
                 restart();
                 break;
             case DIFFERENT:
                 LOG.warning("Symmetric NAT: Error connecting to I2P Network.");
-                updateStatus(SensorStatus.NETWORK_ERROR);
+                updateNetworkStatus(NetworkStatus.NETWORK_ERROR);
                 break;
             case HOSED:
                 LOG.warning("Unable to open UDP port for I2P - Port Conflict. Verify another instance of I2P is not running.");
-                updateStatus(SensorStatus.NETWORK_PORT_CONFLICT);
+                updateNetworkStatus(NetworkStatus.NETWORK_PORT_CONFLICT);
                 break;
             case REJECT_UNSOLICITED:
                 LOG.warning("Blocked. Unable to connect to I2P network.");
                 if(startTimeBlockedMs==0) {
                     startTimeBlockedMs = System.currentTimeMillis();
-                    updateStatus(SensorStatus.NETWORK_BLOCKED);
+                    updateNetworkStatus(NetworkStatus.NETWORK_BLOCKED);
                 } else if((System.currentTimeMillis() - startTimeBlockedMs) > BLOCK_TIME_UNTIL_RESTART) {
                     restart();
                     startTimeBlockedMs = 0L; // Restart the clock to give it some time to connect
                 } else {
-                    updateStatus(SensorStatus.NETWORK_BLOCKED);
+                    updateNetworkStatus(NetworkStatus.NETWORK_BLOCKED);
                 }
                 break;
             default: {
                 LOG.warning("Not connected to I2P Network.");
-                updateStatus(SensorStatus.NETWORK_STOPPED);
+                updateNetworkStatus(NetworkStatus.NETWORK_STOPPED);
             }
         }
-        if(getStatus()==SensorStatus.NETWORK_CONNECTED && sessions.size()==0) {
+        if(getNetworkState().networkStatus==NetworkStatus.NETWORK_CONNECTED && sessions.size()==0) {
             LOG.info("Network Connected and no Sessions.");
             if(routerContext.commSystem().isInStrictCountry()) {
                 LOG.warning("This peer is in a 'strict' country defined by I2P.");
             }
             if(routerContext.router().isHidden()) {
-                LOG.warning("Router was placed in Hidden mode. 1M5 setting for hidden mode: "+properties.getProperty("1m5.sensors.i2p.hidden"));
+                LOG.warning("I2P Router is in Hidden mode. I2P Service setting for hidden mode: "+config.getProperty("ra.i2p.hidden"));
             }
             LOG.info("Establishing Session to speed up future outgoing messages...");
             establishSession(null, true);
-            if(discovery==null) {
-                LOG.info("I2P NetworkPeerDiscovery not instantiated; adding to TaskRunner...");
-                discovery = new NetworkPeerDiscovery(taskRunner, this);
-                // ensure id set
-                seedAI2P.setId(sensorManager.getPeerManager().getLocalNode().getNetworkPeer().getId());
-                sensorManager.getPeerManager().savePeer(seedAI2P, true);
-//                taskRunner.addTask(discovery);
-            }
         }
     }
 
@@ -561,11 +534,11 @@ public final class I2P extends BaseSensor {
      */
     private void mergeRouterConfig(Properties overrides) {
         Properties props = new OrderedProperties();
-        File f = new File(i2pBaseDir,"router.config");
+        File f = new File(i2pDir,"router.config");
         boolean i2pBaseRouterConfigIsNew = false;
         if(!f.exists()) {
             if(!f.mkdir()) {
-                LOG.warning("While merging router.config files, unable to create router.config in i2pBaseDirectory: "+i2pBaseDir);
+                LOG.warning("While merging router.config files, unable to create router.config in i2pBaseDirectory: "+i2pDir.getAbsolutePath());
             } else {
                 i2pBaseRouterConfigIsNew = true;
             }
@@ -595,14 +568,13 @@ public final class I2P extends BaseSensor {
     }
 
     /**
-     *  Copy all certificates found in io/onemfive/network/sensors/i2p/certificates on classpath
-     *  into i2pBaseDir/certificates
+     *  Copy all certificates found in certificates on classpath
+     *  into i2pDir/certificates
      *
      *  @param reseedCertificates destination directory for reseed certificates
      *  @param sslCertificates destination directory for ssl certificates
      */
     private boolean copyCertificatesToBaseDir(File reseedCertificates, File sslCertificates) {
-        final String path = "io/onemfive/network/sensors/i2p";
         if(!SystemVersion.isAndroid()) {
             String jarPath = getClass().getProtectionDomain().getCodeSource().getLocation().getPath();
             final File jarFile = new File(jarPath);
@@ -615,14 +587,14 @@ public final class I2P extends BaseSensor {
                     while (entries.hasMoreElements()) {
                         entry = entries.nextElement();
                         final String name = entry.getName();
-                        if (name.startsWith(path + "/certificates/reseed/")) { //filter according to the path
+                        if (name.startsWith("certificates/reseed/")) { //filter according to the path
                             if (!name.endsWith("/")) {
                                 String fileName = name.substring(name.lastIndexOf("/") + 1);
                                 LOG.info("fileName to save: " + fileName);
                                 f = new File(reseedCertificates, fileName);
                             }
                         }
-                        if (name.startsWith(path + "/certificates/ssl/")) {
+                        if (name.startsWith("certificates/ssl/")) {
                             if (!name.endsWith("/")) {
                                 String fileName = name.substring(name.lastIndexOf("/") + 1);
                                 LOG.info("fileName to save: " + fileName);
@@ -660,7 +632,7 @@ public final class I2P extends BaseSensor {
                 }
             } else {
                 // called while testing in an IDE
-                URL resource = io.onemfive.network.sensors.i2p.I2PSensor.class.getClassLoader().getResource(path);
+                URL resource = I2PService.class.getClassLoader().getResource(".");
                 File file = null;
                 try {
                     file = new File(resource.toURI());
@@ -668,9 +640,9 @@ public final class I2P extends BaseSensor {
                     LOG.warning("Unable to access I2P resource directory.");
                     return false;
                 }
-                File[] boteResFolderFiles = file.listFiles();
+                File[] resFolderFiles = file.listFiles();
                 File certResFolder = null;
-                for (File f : boteResFolderFiles) {
+                for (File f : resFolderFiles) {
                     if ("certificates".equals(f.getName())) {
                         certResFolder = f;
                         break;
@@ -697,19 +669,6 @@ public final class I2P extends BaseSensor {
             }
         }
         return true;
-    }
-
-    public static void main(String[] args) {
-        File f = new File(args[0]);
-        if(!f.exists() && !f.mkdir()) {
-            System.out.println("Unable to create directory "+args[0]);
-            System.exit(-1);
-        }
-        Properties p = new Properties();
-        p.setProperty("1m5.dir.base",args[0]);
-        p.setProperty("1m5.sensors.i2p.isTest","true");
-        io.onemfive.network.sensors.i2p.I2PSensor s = new io.onemfive.network.sensors.i2p.I2PSensor();
-        s.start(p);
     }
 
 }

@@ -1,12 +1,15 @@
 package ra.i2p;
 
 
-import ra.common.NetworkPacket;
+import ra.common.network.BaseSession;
+import ra.common.network.NetworkPacket;
 
-public class I2PSensorSessionLocal extends BaseSession {
+class I2PSessionLocal extends BaseSession {
 
-    public I2PSensorSessionLocal(I2P sensor) {
-        super(sensor);
+    private I2PService service;
+
+    public I2PSessionLocal(I2PService service) {
+        this.service = service;
     }
 
     @Override
@@ -39,13 +42,4 @@ public class I2PSensorSessionLocal extends BaseSession {
         return null;
     }
 
-    @Override
-    public boolean send(NetworkRequestOp requestOp) {
-        return false;
-    }
-
-    @Override
-    public boolean notify(NetworkNotifyOp notifyOp) {
-        return false;
-    }
 }

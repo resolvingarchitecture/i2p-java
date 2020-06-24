@@ -2,18 +2,22 @@ package ra.i2p;
 
 import net.i2p.client.I2PSession;
 import net.i2p.client.I2PSessionMuxedListener;
+import ra.common.network.BaseSession;
+import ra.common.network.NetworkPacket;
 
 import java.util.logging.Logger;
 
-public class I2PSensorSessionExternal extends BaseSession implements I2PSessionMuxedListener {
+class I2PSessionExternal extends BaseSession implements I2PSessionMuxedListener {
 
-    private static final Logger LOG = Logger.getLogger(io.onemfive.network.sensors.i2p.I2PSensorSessionExternal.class.getName());
+    private static final Logger LOG = Logger.getLogger(I2PSessionExternal.class.getName());
 
+    private I2PService service;
     private boolean connected = false;
     private String address;
 
-    public I2PSensorSessionExternal(I2P sensor) {
-        super(sensor);
+    public I2PSessionExternal(I2PService service) {
+        super();
+        this.service = service;
     }
 
     public String getAddress() {
@@ -53,18 +57,6 @@ public class I2PSensorSessionExternal extends BaseSession implements I2PSessionM
 
     @Override
     public Boolean send(NetworkPacket packet) {
-        LOG.warning("Not yet implemented.");
-        return false;
-    }
-
-    @Override
-    public boolean send(NetworkRequestOp requestOp) {
-        LOG.warning("Not yet implemented.");
-        return false;
-    }
-
-    @Override
-    public boolean notify(NetworkNotifyOp notifyOp) {
         LOG.warning("Not yet implemented.");
         return false;
     }
