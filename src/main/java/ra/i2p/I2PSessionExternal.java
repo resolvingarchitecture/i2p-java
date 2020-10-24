@@ -2,12 +2,12 @@ package ra.i2p;
 
 import net.i2p.client.I2PSession;
 import net.i2p.client.I2PSessionMuxedListener;
-import ra.common.network.BaseSession;
-import ra.common.network.NetworkPacket;
+import ra.common.Envelope;
+import ra.common.network.BaseClientSession;
 
 import java.util.logging.Logger;
 
-class I2PSessionExternal extends BaseSession implements I2PSessionMuxedListener {
+class I2PSessionExternal extends BaseClientSession implements I2PSessionMuxedListener {
 
     private static final Logger LOG = Logger.getLogger(I2PSessionExternal.class.getName());
 
@@ -56,7 +56,7 @@ class I2PSessionExternal extends BaseSession implements I2PSessionMuxedListener 
     }
 
     @Override
-    public Boolean send(NetworkPacket packet) {
+    public Boolean send(Envelope envelope) {
         LOG.warning("Not yet implemented.");
         return false;
     }

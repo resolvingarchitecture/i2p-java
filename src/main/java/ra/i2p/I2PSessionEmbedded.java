@@ -21,6 +21,7 @@ import ra.common.Envelope;
 import ra.common.identity.DID;
 import ra.common.messaging.EventMessage;
 import ra.common.network.*;
+import ra.common.route.ExternalRoute;
 import ra.common.service.Packet;
 import ra.notification.NotificationService;
 import ra.util.JSONParser;
@@ -33,7 +34,7 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.logging.Logger;
 
-class I2PSessionEmbedded extends BaseSession implements I2PSessionMuxedListener {
+class I2PSessionEmbedded extends BaseClientSession implements I2PSessionMuxedListener {
 
     private static final Logger LOG = Logger.getLogger(I2PSessionEmbedded.class.getName());
 
@@ -250,22 +251,29 @@ class I2PSessionEmbedded extends BaseSession implements I2PSessionMuxedListener 
     }
 
     @Override
-    public Boolean send(NetworkPacket packet) {
-        if (packet == null) {
-            LOG.warning("No Packet.");
+    public Boolean send(Envelope envelope) {
+        if (envelope == null) {
+            LOG.warning("No Envelope.");
             return false;
         }
-        if (packet.getToPeer() == null) {
-            LOG.warning("No Peer for I2P found in toDID while sending to I2P.");
-            packet.statusCode = NetworkPacket.DESTINATION_PEER_REQUIRED;
+        if(!(envelope.getRoute() instanceof ExternalRoute)) {
+            LOG.warning("Not an external route.");
+            envelope.getMessage().addErrorMessage("Route must be external.");
             return false;
         }
-        if (packet.getToPeer().getNetwork() != I2PService.class.getName()) {
-            LOG.warning("Not a packet for I2P.");
-            packet.statusCode = NetworkPacket.DESTINATION_PEER_WRONG_NETWORK;
+        ExternalRoute er = (ExternalRoute)envelope.getRoute();
+        if (er.getDestination() == null) {
+            LOG.warning("No Destination Peer for I2P found in while sending to I2P.");
+            envelope.getMessage().addErrorMessage("Code:" + ExternalRoute.DESTINATION_PEER_REQUIRED+", Destination Peer Required.");
             return false;
         }
-        String content = packet.toJSON();
+        if (!"I2P".equals(er.getDestination().getNetwork())) {
+            LOG.warning("Not an envelope for I2P.");
+            envelope.getMessage().addErrorMessage("Code:" + ExternalRoute.DESTINATION_PEER_WRONG_NETWORK+", Not meant for I2P Network.");
+            return false;
+        }
+
+        String content = envelope.toJSON();
         LOG.info("Content to send: " + content);
         if (content.length() > 31500) {
             // Just warn for now
@@ -273,30 +281,29 @@ class I2PSessionEmbedded extends BaseSession implements I2PSessionMuxedListener 
             LOG.warning("Content longer than 31.5kb. May have issues.");
         }
         try {
-            Destination toDestination = i2pSession.lookupDest(packet.getToPeer().getDid().getPublicKey().getAddress());
-            if(toDestination == null) {
-                LOG.warning("I2P Peer To Destination not found.");
-                packet.statusCode = NetworkPacket.DESTINATION_PEER_NOT_FOUND;
+            Destination destination = i2pSession.lookupDest(er.getDestination().getDid().getPublicKey().getAddress());
+            if(destination == null) {
+                LOG.warning("I2P Destination Peer not found.");
+                envelope.getMessage().addErrorMessage("Code:" + ExternalRoute.DESTINATION_PEER_NOT_FOUND+", I2P Destination Peer not found.");
                 return false;
             }
             I2PDatagramMaker m = new I2PDatagramMaker(i2pSession);
             byte[] payload = m.makeI2PDatagram(content.getBytes());
-            if(i2pSession.sendMessage(toDestination, payload, I2PSession.PROTO_UNSPECIFIED, I2PSession.PORT_ANY, I2PSession.PORT_ANY)) {
+            if(i2pSession.sendMessage(destination, payload, I2PSession.PROTO_UNSPECIFIED, I2PSession.PORT_ANY, I2PSession.PORT_ANY)) {
                 LOG.info("I2P Message sent.");
                 return true;
             } else {
                 LOG.warning("I2P Message sending failed.");
-                packet.statusCode = Packet.SENDING_FAILED;
+                envelope.getMessage().addErrorMessage("I2P Message sending failed.");
                 return false;
             }
         } catch (I2PSessionException e) {
             String errMsg = "Exception while sending I2P message: " + e.getLocalizedMessage();
             LOG.warning(errMsg);
-            packet.exception = e;
-            packet.errorMessage = errMsg;
+            envelope.getMessage().addErrorMessage(errMsg);
             if("Already closed".equals(e.getLocalizedMessage())) {
                 LOG.info("I2P Connection closed. Could be no internet access or getting blocked. Assume blocked for re-route. If not blocked, I2P will automatically re-establish connection when network access returns.");
-                service.getNetworkState().networkStatus = NetworkStatus.NETWORK_BLOCKED;
+                service.getNetworkState().networkStatus = NetworkStatus.BLOCKED;
             }
             return false;
         }
@@ -349,36 +356,17 @@ class I2PSessionEmbedded extends BaseSession implements I2PSessionMuxedListener 
             String address = sender.toBase64();
             String fingerprint = sender.getHash().toBase64();
             LOG.info("Received I2P Message:\n\tFrom: " + address +"\n\tContent:\n\t" + strPayload);
-            if(strPayload.startsWith("{")) {
-                // JSON
-                Map<String, Object> pm = (Map<String, Object>) JSONParser.parse(strPayload);
-                String type = (String) pm.get("type");
-                LOG.info("Type discovered: " + type);
-                Object obj = Class.forName(type).getConstructor().newInstance();
-                if(obj instanceof NetworkPacket) {
-                    NetworkPacket packet = (NetworkPacket) Class.forName(type).getConstructor().newInstance();
-                    packet.fromMap(pm);
-                    Envelope e = packet.getEnvelope();
-                    if (!service.send(e)) {
-                        LOG.warning("Unsuccessful sending of JSON event to bus.");
-                    }
-                } else {
-                    LOG.warning("Unhandled type: "+type);
-                }
+            Map<String, Object> pm = (Map<String, Object>) JSONParser.parse(strPayload);
+            String type = (String) pm.get("type");
+            LOG.info("Type discovered: " + type);
+            Object obj = Class.forName(type).getConstructor().newInstance();
+            Envelope envelope = (Envelope)obj;
+            if(DLC.markerPresent("Op", envelope)) {
+                // TODO: Handle Network Op
+                LOG.warning("Network Ops not yet handled.");
             } else {
-                LOG.info("Creating HTML Event Message for Notification Service...");
-                Envelope e = Envelope.eventFactory(EventMessage.Type.HTML);
-                e.setURL(new URL("http://"+address+".i2p"));
-                NetworkPeer from = new NetworkPeer(I2PService.class.getName());
-                from.getDid().getPublicKey().setAddress(address);
-                from.getDid().getPublicKey().setFingerprint(fingerprint);
-                e.setDID(from.getDid());
-                EventMessage m = (EventMessage) e.getMessage();
-                m.setName(fingerprint);
-                m.setMessage(strPayload);
-                DLC.addRoute(NotificationService.class, NotificationService.OPERATION_PUBLISH, e);
-                if(!service.send(e)) {
-                    LOG.warning("Unsuccessful sending of HTML event to bus.");
+                if (!service.send(envelope)) {
+                    LOG.warning("Unsuccessful sending of Envelope to bus.");
                 }
             }
         } catch (DataFormatException e) {

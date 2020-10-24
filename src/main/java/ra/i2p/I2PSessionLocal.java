@@ -1,10 +1,10 @@
 package ra.i2p;
 
 
-import ra.common.network.BaseSession;
-import ra.common.network.NetworkPacket;
+import ra.common.Envelope;
+import ra.common.network.BaseClientSession;
 
-class I2PSessionLocal extends BaseSession {
+class I2PSessionLocal extends BaseClientSession {
 
     private I2PService service;
 
@@ -38,7 +38,7 @@ class I2PSessionLocal extends BaseSession {
     }
 
     @Override
-    public Boolean send(NetworkPacket packet) {
+    public Boolean send(Envelope envelope) {
         return null;
     }
 

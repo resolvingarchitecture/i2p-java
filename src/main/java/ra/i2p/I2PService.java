@@ -14,7 +14,6 @@ import ra.common.Envelope;
 import ra.common.messaging.MessageProducer;
 import ra.common.network.*;
 import ra.common.route.Route;
-import ra.common.service.NetworkService;
 import ra.common.service.ServiceStatus;
 import ra.common.service.ServiceStatusListener;
 import ra.notification.NotificationService;
@@ -38,6 +37,7 @@ public final class I2PService extends NetworkService {
 
     private static final Logger LOG = Logger.getLogger(I2PService.class.getName());
 
+    public static final String OPERATION_SEND = "SEND";
     public static final String OPERATION_CHECK_ROUTER_STATUS = "CHECK_ROUTER_STATUS";
 
     /**
@@ -77,10 +77,10 @@ public final class I2PService extends NetworkService {
     private boolean embedded = true;
     private boolean isTest = false;
     private TaskRunner taskRunner;
-    private Map<String, NetworkSession> sessions = new HashMap<>();
+    private Map<String, NetworkClientSession> sessions = new HashMap<>();
 
     public I2PService(MessageProducer messageProducer, ServiceStatusListener listener) {
-        super(messageProducer, listener);
+        super(messageProducer, listener, new NetworkBuilderStrategy());
     }
 
     @Override
@@ -88,8 +88,12 @@ public final class I2PService extends NetworkService {
         super.handleDocument(e);
         Route r = e.getRoute();
         switch(r.getOperation()) {
+            case OPERATION_SEND: {
+                sendOut(e);
+                break;
+            }
             case OPERATION_CHECK_ROUTER_STATUS: {
-
+                checkRouterStats();
                 break;
             }
             default: {
@@ -99,12 +103,12 @@ public final class I2PService extends NetworkService {
         }
     }
 
-    private NetworkSession establishSession(String address, Boolean autoConnect) {
+    private NetworkClientSession establishSession(String address, Boolean autoConnect) {
         if(address==null) {
             address = "default";
         }
         if(sessions.get(address)==null) {
-            NetworkSession session = embedded ? new I2PSessionEmbedded(this) : new I2PSessionExternal(this);
+            NetworkClientSession session = embedded ? new I2PSessionEmbedded(this) : new I2PSessionExternal(this);
             session.init(config);
             session.open(null);
             if (autoConnect) {
@@ -115,20 +119,16 @@ public final class I2PService extends NetworkService {
         return sessions.get(address);
     }
 
-    protected Request buildRequest(NetworkPeer networkPeer, NetworkPeer networkPeer1) {
-        return null;
-    }
-
     /**
      * Sends UTF-8 content to a Destination using I2P.
-     * @param packet Packet containing Envelope as data.
+     * @param envelope Envelope containing Envelope as data.
      *                 To DID must contain base64 encoded I2P destination key.
      * @return boolean was successful
      */
-    public boolean send(NetworkPacket packet) {
+    public Boolean sendOut(Envelope envelope) {
         LOG.info("Send I2P Message Out Packet received...");
-        NetworkSession session = establishSession(null, true);
-        return session.send(packet);
+        NetworkClientSession session = establishSession(null, true);
+        return session.send(envelope);
     }
 
     public File getDirectory() {
@@ -136,12 +136,12 @@ public final class I2PService extends NetworkService {
     }
 
     public void updateState(NetworkState networkState) {
-        if(this.networkState.params.get(Router.PROP_HIDDEN)!=null
+        if(this.getNetworkState().params.get(Router.PROP_HIDDEN)!=null
                 && networkState.params.get(Router.PROP_HIDDEN)!=null
-                && this.networkState.params.get(Router.PROP_HIDDEN)!= networkState.params.get(Router.PROP_HIDDEN)) {
+                && this.getNetworkState().params.get(Router.PROP_HIDDEN)!= networkState.params.get(Router.PROP_HIDDEN)) {
             // Hidden mode changed so change for Router and restart
-            this.networkState.params.put(Router.PROP_HIDDEN, networkState.params.get(Router.PROP_HIDDEN));
-            router.saveConfig(Router.PROP_HIDDEN, (String) this.networkState.params.get(Router.PROP_HIDDEN));
+            this.getNetworkState().params.put(Router.PROP_HIDDEN, networkState.params.get(Router.PROP_HIDDEN));
+            router.saveConfig(Router.PROP_HIDDEN, (String) this.getNetworkState().params.get(Router.PROP_HIDDEN));
             restart();
         }
     }
@@ -293,7 +293,7 @@ public final class I2PService extends NetworkService {
 //            router.saveConfig(Router.PROP_HIDDEN, "false");
         LOG.info("I2P Router - Hidden Mode: "+router.getConfigSetting(Router.PROP_HIDDEN));
         for(String param : router.getConfigMap().keySet()) {
-            networkState.params.put(param, router.getConfigSetting(param));
+            getNetworkState().params.put(param, router.getConfigSetting(param));
         }
         router.setKillVMOnEnd(false);
 //        routerContext.addShutdownTask(this::shutdown);
@@ -365,7 +365,7 @@ public final class I2PService extends NetworkService {
         }
         taskRunner = null;
         taskRunnerThread = null;
-        for(NetworkSession s : sessions.values()) {
+        for(NetworkClientSession s : sessions.values()) {
             s.disconnect();
             s.close();
         }
@@ -389,7 +389,7 @@ public final class I2PService extends NetworkService {
         }
         taskRunner = null;
         taskRunnerThread = null;
-        for(NetworkSession s : sessions.values()) {
+        for(NetworkClientSession s : sessions.values()) {
             s.disconnect();
             s.close();
         }
@@ -407,95 +407,95 @@ public final class I2PService extends NetworkService {
         switch (i2pRouterStatus) {
             case UNKNOWN:
                 LOG.info("Testing I2P Network...");
-                updateNetworkStatus(NetworkStatus.NETWORK_CONNECTING);
+                updateNetworkStatus(NetworkStatus.CONNECTING);
                 break;
             case IPV4_DISABLED_IPV6_UNKNOWN:
                 LOG.info("IPV4 Disabled but IPV6 Testing...");
-                updateNetworkStatus(NetworkStatus.NETWORK_CONNECTING);
+                updateNetworkStatus(NetworkStatus.CONNECTING);
                 break;
             case IPV4_FIREWALLED_IPV6_UNKNOWN:
                 LOG.info("IPV4 Firewalled but IPV6 Testing...");
-                updateNetworkStatus(NetworkStatus.NETWORK_CONNECTING);
+                updateNetworkStatus(NetworkStatus.CONNECTING);
                 break;
             case IPV4_SNAT_IPV6_UNKNOWN:
                 LOG.info("IPV4 SNAT but IPV6 Testing...");
-                updateNetworkStatus(NetworkStatus.NETWORK_CONNECTING);
+                updateNetworkStatus(NetworkStatus.CONNECTING);
                 break;
             case IPV4_UNKNOWN_IPV6_FIREWALLED:
                 LOG.info("IPV6 Firewalled but IPV4 Testing...");
-                updateNetworkStatus(NetworkStatus.NETWORK_CONNECTING);
+                updateNetworkStatus(NetworkStatus.CONNECTING);
                 break;
             case OK:
                 LOG.info("Connected to I2P Network.");
                 restartAttempts = 0; // Reset restart attempts
 
-                updateNetworkStatus(NetworkStatus.NETWORK_CONNECTED);
+                updateNetworkStatus(NetworkStatus.CONNECTED);
                 break;
             case IPV4_DISABLED_IPV6_OK:
                 LOG.info("IPV4 Disabled but IPV6 OK: Connected to I2P Network.");
                 restartAttempts = 0; // Reset restart attempts
-                updateNetworkStatus(NetworkStatus.NETWORK_CONNECTED);
+                updateNetworkStatus(NetworkStatus.CONNECTED);
                 break;
             case IPV4_FIREWALLED_IPV6_OK:
                 LOG.info("IPV4 Firewalled but IPV6 OK: Connected to I2P Network.");
                 restartAttempts = 0; // Reset restart attempts
-                updateNetworkStatus(NetworkStatus.NETWORK_CONNECTED);
+                updateNetworkStatus(NetworkStatus.CONNECTED);
                 break;
             case IPV4_SNAT_IPV6_OK:
                 LOG.info("IPV4 SNAT but IPV6 OK: Connected to I2P Network.");
                 restartAttempts = 0; // Reset restart attempts
-                updateNetworkStatus(NetworkStatus.NETWORK_CONNECTED);
+                updateNetworkStatus(NetworkStatus.CONNECTED);
                 break;
             case IPV4_UNKNOWN_IPV6_OK:
                 LOG.info("IPV4 Testing but IPV6 OK: Connected to I2P Network.");
                 restartAttempts = 0; // Reset restart attempts
-                updateNetworkStatus(NetworkStatus.NETWORK_CONNECTED);
+                updateNetworkStatus(NetworkStatus.CONNECTED);
                 break;
             case IPV4_OK_IPV6_FIREWALLED:
                 LOG.info("IPV6 Firewalled but IPV4 OK: Connected to I2P Network.");
                 restartAttempts = 0; // Reset restart attempts
-                updateNetworkStatus(NetworkStatus.NETWORK_CONNECTED);
+                updateNetworkStatus(NetworkStatus.CONNECTED);
                 break;
             case IPV4_OK_IPV6_UNKNOWN:
                 LOG.info("IPV6 Testing but IPV4 OK: Connected to I2P Network.");
                 restartAttempts = 0; // Reset restart attempts
-                updateNetworkStatus(NetworkStatus.NETWORK_CONNECTED);
+                updateNetworkStatus(NetworkStatus.CONNECTED);
                 break;
             case IPV4_DISABLED_IPV6_FIREWALLED:
                 LOG.warning("IPV4 Disabled but IPV6 Firewalled. Connected to I2P network.");
-                updateNetworkStatus(NetworkStatus.NETWORK_CONNECTED);
+                updateNetworkStatus(NetworkStatus.CONNECTED);
                 break;
             case DISCONNECTED:
                 LOG.info("Disconnected from I2P Network.");
-                updateNetworkStatus(NetworkStatus.NETWORK_STOPPED);
+                updateNetworkStatus(NetworkStatus.DISCONNECTED);
                 restart();
                 break;
             case DIFFERENT:
                 LOG.warning("Symmetric NAT: Error connecting to I2P Network.");
-                updateNetworkStatus(NetworkStatus.NETWORK_ERROR);
+                updateNetworkStatus(NetworkStatus.ERROR);
                 break;
             case HOSED:
                 LOG.warning("Unable to open UDP port for I2P - Port Conflict. Verify another instance of I2P is not running.");
-                updateNetworkStatus(NetworkStatus.NETWORK_PORT_CONFLICT);
+                updateNetworkStatus(NetworkStatus.PORT_CONFLICT);
                 break;
             case REJECT_UNSOLICITED:
                 LOG.warning("Blocked. Unable to connect to I2P network.");
                 if(startTimeBlockedMs==0) {
                     startTimeBlockedMs = System.currentTimeMillis();
-                    updateNetworkStatus(NetworkStatus.NETWORK_BLOCKED);
+                    updateNetworkStatus(NetworkStatus.BLOCKED);
                 } else if((System.currentTimeMillis() - startTimeBlockedMs) > BLOCK_TIME_UNTIL_RESTART) {
                     restart();
                     startTimeBlockedMs = 0L; // Restart the clock to give it some time to connect
                 } else {
-                    updateNetworkStatus(NetworkStatus.NETWORK_BLOCKED);
+                    updateNetworkStatus(NetworkStatus.BLOCKED);
                 }
                 break;
             default: {
                 LOG.warning("Not connected to I2P Network.");
-                updateNetworkStatus(NetworkStatus.NETWORK_STOPPED);
+                updateNetworkStatus(NetworkStatus.DISCONNECTED);
             }
         }
-        if(getNetworkState().networkStatus==NetworkStatus.NETWORK_CONNECTED && sessions.size()==0) {
+        if(getNetworkState().networkStatus==NetworkStatus.CONNECTED && sessions.size()==0) {
             LOG.info("Network Connected and no Sessions.");
             if(routerContext.commSystem().isInStrictCountry()) {
                 LOG.warning("This peer is in a 'strict' country defined by I2P.");
