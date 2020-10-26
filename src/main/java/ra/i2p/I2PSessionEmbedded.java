@@ -19,15 +19,11 @@ import net.i2p.util.SecureFileOutputStream;
 import ra.common.DLC;
 import ra.common.Envelope;
 import ra.common.identity.DID;
-import ra.common.messaging.EventMessage;
 import ra.common.network.*;
 import ra.common.route.ExternalRoute;
-import ra.common.service.Packet;
-import ra.notification.NotificationService;
 import ra.util.JSONParser;
 
 import java.io.*;
-import java.net.URL;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -77,24 +73,27 @@ class I2PSessionEmbedded extends BaseClientSession implements I2PSessionMuxedLis
         super.init(p);
         LOG.info("Initializing I2P Session....");
         // set tunnel names
-        properties.setProperty("inbound.nickname", "I2PSensor");
-        properties.setProperty("outbound.nickname", "I2PSensor");
+        properties.setProperty("inbound.nickname", "I2PService");
+        properties.setProperty("outbound.nickname", "I2PService");
+        LOG.info("I2P Session initialized.");
         return true;
     }
 
     /**
      * Open a Socket with internal peer.
-     * I2P Sensor currently uses only one internal I2P address thus ignoring any address passed to this method.
+     * I2P Service currently uses only one internal I2P address thus ignoring any address passed to this method.
      */
     @Override
     public boolean open(String i2pAddress) {
+        LOG.info("Opening connection...");
         address = i2pAddress;
         NetworkPeer localI2PPeer = service.getNetworkState().localPeer;
         // read the local destination key from the key file if it exists
-        String alias = localI2PPeer.getDid().getUsername();
-        if(alias==null) {
-            alias = "anon";
+        String alias = "anon";
+        if(localI2PPeer!=null && localI2PPeer.getDid().getUsername()!=null) {
+            alias = localI2PPeer.getDid().getUsername();
         }
+
         File destinationKeyFile = new File(service.getDirectory(), alias);
         FileReader fileReader = null;
         try {
@@ -160,7 +159,8 @@ class I2PSessionEmbedded extends BaseClientSession implements I2PSessionMuxedLis
             }
         }
         i2pSession = socketManager.getSession();
-        if(localI2PPeer.getDid().getPublicKey().getAddress()==null || localI2PPeer.getDid().getPublicKey().getAddress().isEmpty()) {
+        if(localI2PPeer.getDid().getPublicKey().getAddress()==null
+                || localI2PPeer.getDid().getPublicKey().getAddress().isEmpty()) {
             Destination localDestination = i2pSession.getMyDestination();
             String address = localDestination.toBase64();
             String fingerprint = localDestination.calculateHash().toBase64();

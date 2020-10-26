@@ -10,6 +10,7 @@ import net.i2p.util.FileUtil;
 import net.i2p.util.Log;
 import net.i2p.util.OrderedProperties;
 import net.i2p.util.SystemVersion;
+import ra.common.Client;
 import ra.common.Envelope;
 import ra.common.messaging.MessageProducer;
 import ra.common.network.*;
@@ -51,18 +52,6 @@ public final class I2PService extends NetworkService {
     protected static int ECDH521EDCSA521 = 3;
     protected static int NTRUEncrypt1087GMSS512 = 4;
 
-    public static final NetworkPeer seedAI2P;
-
-    static {
-        seedAI2P = new NetworkPeer("I2P");
-        seedAI2P.setId("+sKVViuz2FPsl/XQ+Da/ivbNfOI=");
-        seedAI2P.getDid().getPublicKey().setAddress("ygfTZm-Cwhs9FI05gwHC3hr360gpcp103KRUSubJ2xvaEhFXzND8emCKXSAZLrIubFoEct5lmPYjXegykkWZOsjdvt8ZWZR3Wt79rc3Ovk7Ev4WXrgIDHjhpr-cQdBITSFW8Ay1YvArKxuEVpIChF22PlPbDg7nRyHXOqmYmrjo2AcwObs--mtH34VMy4R934PyhfEkpLZTPyN73qO4kgvrBtmpOxdWOGvlDbCQjhSAC3018xpM0qFdFSyQwZkHdJ9sG7Mov5dmG5a6D6wRx~5IEdfufrQi1aR7FEoomtys-vAAF1asUyX1UkxJ2WT2al8eIuCww6Nt6U6XfhN0UbSjptbNjWtK-q4xutcreAu3FU~osZRaznGwCHez5arT4X2jLXNfSEh01ICtT741Ki4aeSrqRFPuIove2tmUHZPt4W6~WMztvf5Oc58jtWOj08HBK6Tc16dzlgo9kpb0Vs3h8cZ4lavpRen4i09K8vVORO1QgD0VH3nIZ5Ql7K43zAAAA");
-        seedAI2P.getDid().getPublicKey().setFingerprint("bl4fi-lFyTPQQkKOPuxlF9zPGEdgtAhtKetnyEwj8t0=");
-        seedAI2P.getDid().getPublicKey().setType("ElGamal/None/NoPadding");
-        seedAI2P.getDid().getPublicKey().isIdentityKey(true);
-        seedAI2P.getDid().getPublicKey().setBase64Encoded(true);
-    }
-
     // I2P Router and Context
     private File i2pDir;
     private RouterContext routerContext;
@@ -80,7 +69,7 @@ public final class I2PService extends NetworkService {
     private Map<String, NetworkClientSession> sessions = new HashMap<>();
 
     public I2PService(MessageProducer messageProducer, ServiceStatusListener listener) {
-        super(messageProducer, listener, new NetworkBuilderStrategy());
+        super("I2P", messageProducer, listener);
     }
 
     @Override
@@ -157,28 +146,8 @@ public final class I2PService extends NetworkService {
             return false;
         }
         isTest = "true".equals(config.getProperty("ra.i2p.isTest"));
-        // Look for another instance installed
-        if(System.getProperty("i2p.dir.base")==null) {
-            // Set up I2P Directories within RA Directory
-            try {
-                i2pDir = SystemSettings.getUserAppHomeDir(".ra", "i2p", true);
-                embedded = true;
-                System.setProperty("i2p.dir.base", i2pDir.getAbsolutePath());
-            } catch (IOException e) {
-                LOG.severe(e.getLocalizedMessage());
-                return false;
-            }
-        } else {
-            i2pDir = new File(System.getProperty("i2p.dir.base"));
-            embedded = false;
-        }
 
-        if (!i2pDir.exists()) {
-            if (!i2pDir.mkdir()) {
-                LOG.severe("Unable to create I2P base directory: " + i2pDir.getAbsolutePath() + "; exiting...");
-                return false;
-            }
-        }
+        i2pDir = getServiceDirectory();
 
         // Config Directory
         File i2pConfigDir = new File(i2pDir, "config");
@@ -303,6 +272,7 @@ public final class I2PService extends NetworkService {
 
         if(taskRunner==null) {
             taskRunner = new TaskRunner(2, 2);
+            taskRunner.setPeriodicity(2 * 1000L);
             taskRunner.addTask(new CheckRouterStatus(this,taskRunner));
         }
 
@@ -426,9 +396,8 @@ public final class I2PService extends NetworkService {
                 updateNetworkStatus(NetworkStatus.CONNECTING);
                 break;
             case OK:
-                LOG.info("Connected to I2P Network.");
+                LOG.info("Connected to I2P Network. We are able to receive unsolicited connections.");
                 restartAttempts = 0; // Reset restart attempts
-
                 updateNetworkStatus(NetworkStatus.CONNECTED);
                 break;
             case IPV4_DISABLED_IPV6_OK:
@@ -463,6 +432,12 @@ public final class I2PService extends NetworkService {
                 break;
             case IPV4_DISABLED_IPV6_FIREWALLED:
                 LOG.warning("IPV4 Disabled but IPV6 Firewalled. Connected to I2P network.");
+                restartAttempts = 0; // Reset restart attempts
+                updateNetworkStatus(NetworkStatus.CONNECTED);
+                break;
+            case REJECT_UNSOLICITED:
+                LOG.info("We are able to talk to peers that we initiate communication with, but cannot receive unsolicited connections. Connected to I2P network.");
+                restartAttempts = 0; // Reset restart attempts
                 updateNetworkStatus(NetworkStatus.CONNECTED);
                 break;
             case DISCONNECTED:
@@ -477,18 +452,6 @@ public final class I2PService extends NetworkService {
             case HOSED:
                 LOG.warning("Unable to open UDP port for I2P - Port Conflict. Verify another instance of I2P is not running.");
                 updateNetworkStatus(NetworkStatus.PORT_CONFLICT);
-                break;
-            case REJECT_UNSOLICITED:
-                LOG.warning("Blocked. Unable to connect to I2P network.");
-                if(startTimeBlockedMs==0) {
-                    startTimeBlockedMs = System.currentTimeMillis();
-                    updateNetworkStatus(NetworkStatus.BLOCKED);
-                } else if((System.currentTimeMillis() - startTimeBlockedMs) > BLOCK_TIME_UNTIL_RESTART) {
-                    restart();
-                    startTimeBlockedMs = 0L; // Restart the clock to give it some time to connect
-                } else {
-                    updateNetworkStatus(NetworkStatus.BLOCKED);
-                }
                 break;
             default: {
                 LOG.warning("Not connected to I2P Network.");
@@ -669,6 +632,27 @@ public final class I2PService extends NetworkService {
             }
         }
         return true;
+    }
+
+    public static void main(String[] args) {
+        MessageProducer messageProducer = new MessageProducer() {
+            @Override
+            public boolean send(Envelope envelope) {
+                LOG.info(envelope.toJSON());
+                return true;
+            }
+
+            @Override
+            public boolean send(Envelope envelope, Client client) {
+                LOG.info(envelope.toJSON());
+                return true;
+            }
+        };
+        I2PService service = new I2PService(messageProducer, null);
+        service.start(null);
+        while(true) {
+            Wait.aSec(1);
+        }
     }
 
 }
