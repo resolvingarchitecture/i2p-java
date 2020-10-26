@@ -3,7 +3,7 @@ Invisible Internet Project (I2P) Service
 
 ## Build Notes
 - Required certificates from the following two directories in the i2p.i2p project (I2P Router core)
-to be copied to resources/io/onemfive/core/sensors/i2p/bote/certificates keeping reseed and ssl as directories:
+to be copied to resources/certificates keeping reseed and ssl as directories:
     - /installer/resources/certificates/reseed
     - /installer/resources/certificates/ssl
 
@@ -16,7 +16,7 @@ Current integration method. External support to come later.
 Control via: https://github.com/i2p/i2p.itoopie
 
 ## Installation
-Currently, 1M5 embeds I2P router within the sensor. In the future,
+Currently, I2P Service embeds the I2P router. In the future,
 external I2P router will be supported. When that happens, the following
 installations are recommended:
 
@@ -32,7 +32,7 @@ https://github.com/i2p-zero/i2p-zero
 
 ### Linux
 
-#### I2P Router
+#### I2P External Router
 sudo apt remove i2p
 sudo apt remove i2prouter
 sudo apt autoremove
@@ -44,8 +44,14 @@ sudo apt autoclean
 
 ## Version Notes
 
-### 0.6.0
-- upgraded to 0.9.37
+### 0.6.5
+- upgraded to 0.9.47
+
+### 0.6.4
+- upgraded to 0.9.45
+
+### 0.6.3
+- upgraded to 0.9.44
 
 ### 0.6.2
 - upgraded to 0.9.41
@@ -55,5 +61,6 @@ sudo apt autoclean
 
 Note: I believe built-in-peers.txt is no longer used; couldn't find an update
 
-### 0.6.3
-- upgraded to 0.9.44
+### 0.6.0
+- upgraded to 0.9.37
+
