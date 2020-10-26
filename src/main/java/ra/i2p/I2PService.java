@@ -146,8 +146,31 @@ public final class I2PService extends NetworkService {
             return false;
         }
         isTest = "true".equals(config.getProperty("ra.i2p.isTest"));
-
-        i2pDir = getServiceDirectory();
+        // Look for another instance installed
+        if(System.getProperty("i2p.dir.base")==null) {
+            // Set up I2P Directories within RA Services Directory
+            File homeDir = SystemSettings.getUserHomeDir();
+            File raDir = new File(homeDir, ".ra");
+            if(!raDir.exists() && !raDir.mkdir()) {
+                LOG.severe("Unable to create home/.ra directory.");
+                return false;
+            }
+            File servicesDir = new File(raDir, "services");
+            if(!servicesDir.exists() && !servicesDir.mkdir()) {
+                LOG.severe("Unable to create services directory in home/.ra");
+                return false;
+            }
+            i2pDir = new File(servicesDir, I2PService.class.getName());
+            if(!i2pDir.exists() && !i2pDir.mkdir()) {
+                LOG.severe("Unable to create "+I2PService.class.getName()+" directory in home/.ra/services");
+                return false;
+            }
+            System.setProperty("i2p.dir.base", i2pDir.getAbsolutePath());
+            embedded = true;
+        } else {
+            i2pDir = new File(System.getProperty("i2p.dir.base"));
+            embedded = false;
+        }
 
         // Config Directory
         File i2pConfigDir = new File(i2pDir, "config");
