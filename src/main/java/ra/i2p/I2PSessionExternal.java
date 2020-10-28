@@ -3,11 +3,10 @@ package ra.i2p;
 import net.i2p.client.I2PSession;
 import net.i2p.client.I2PSessionMuxedListener;
 import ra.common.Envelope;
-import ra.common.network.BaseClientSession;
 
 import java.util.logging.Logger;
 
-class I2PSessionExternal extends BaseClientSession implements I2PSessionMuxedListener {
+class I2PSessionExternal extends I2PSessionBase implements I2PSessionMuxedListener {
 
     private static final Logger LOG = Logger.getLogger(I2PSessionExternal.class.getName());
 

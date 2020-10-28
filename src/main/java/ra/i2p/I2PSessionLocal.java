@@ -2,9 +2,8 @@ package ra.i2p;
 
 
 import ra.common.Envelope;
-import ra.common.network.BaseClientSession;
 
-class I2PSessionLocal extends BaseClientSession {
+class I2PSessionLocal extends I2PSessionBase {
 
     private I2PService service;
 

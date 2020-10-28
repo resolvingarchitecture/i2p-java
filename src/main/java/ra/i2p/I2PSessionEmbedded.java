@@ -30,7 +30,7 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.logging.Logger;
 
-class I2PSessionEmbedded extends BaseClientSession implements I2PSessionMuxedListener {
+class I2PSessionEmbedded extends I2PSessionBase implements I2PSessionMuxedListener {
 
     private static final Logger LOG = Logger.getLogger(I2PSessionEmbedded.class.getName());
 
@@ -50,7 +50,6 @@ class I2PSessionEmbedded extends BaseClientSession implements I2PSessionMuxedLis
     });
 
     private I2PService service;
-    private I2PSession i2pSession;
     private boolean connected = false;
     private I2PSocketManager socketManager;
     private boolean isTest = false;
@@ -329,7 +328,7 @@ class I2PSessionEmbedded extends BaseClientSession implements I2PSessionMuxedLis
      */
     @Override
     public void messageAvailable(I2PSession session, int msgId, long size) {
-        LOG.info("Message received by I2P Sensor...");
+        LOG.info("Message received by I2P Service...");
         byte[] msg;
         try {
             msg = session.receiveMessage(msgId);
@@ -361,7 +360,7 @@ class I2PSessionEmbedded extends BaseClientSession implements I2PSessionMuxedLis
             LOG.info("Type discovered: " + type);
             Object obj = Class.forName(type).getConstructor().newInstance();
             Envelope envelope = (Envelope)obj;
-            if(DLC.markerPresent("Op", envelope)) {
+            if(DLC.markerPresent("NetOp", envelope)) {
                 // TODO: Handle Network Op
                 LOG.warning("Network Ops not yet handled.");
             } else {

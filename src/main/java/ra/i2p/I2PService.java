@@ -1,7 +1,10 @@
 package ra.i2p;
 
 import net.i2p.client.I2PClient;
+import net.i2p.client.I2PSession;
 import net.i2p.data.DataHelper;
+import net.i2p.data.Destination;
+import net.i2p.data.Hash;
 import net.i2p.router.CommSystemFacade;
 import net.i2p.router.Router;
 import net.i2p.router.RouterContext;
@@ -11,6 +14,7 @@ import net.i2p.util.Log;
 import net.i2p.util.OrderedProperties;
 import net.i2p.util.SystemVersion;
 import ra.common.Client;
+import ra.common.DLC;
 import ra.common.Envelope;
 import ra.common.messaging.MessageProducer;
 import ra.common.network.*;
@@ -40,6 +44,8 @@ public final class I2PService extends NetworkService {
 
     public static final String OPERATION_SEND = "SEND";
     public static final String OPERATION_CHECK_ROUTER_STATUS = "CHECK_ROUTER_STATUS";
+    public static final String OPERATION_LOCAL_PEER_COUNTRY = "LOCAL_PEER_COUNTRY";
+    public static final String OPERATION_REMOTE_PEER_COUNTRY = "REMOTE_PEER_COUNTRY";
 
     /**
      * 1 = ElGamal-2048 / DSA-1024
@@ -66,7 +72,7 @@ public final class I2PService extends NetworkService {
     private boolean embedded = true;
     private boolean isTest = false;
     private TaskRunner taskRunner;
-    private Map<String, NetworkClientSession> sessions = new HashMap<>();
+    private Map<String, I2PSessionBase> sessions = new HashMap<>();
 
     public I2PService(MessageProducer messageProducer, ServiceStatusListener listener) {
         super("I2P", messageProducer, listener);
@@ -85,6 +91,24 @@ public final class I2PService extends NetworkService {
                 checkRouterStats();
                 break;
             }
+            case OPERATION_LOCAL_PEER_COUNTRY: {
+                NetworkPeer localPeer = getNetworkState().localPeer;
+                if(localPeer==null) {
+                    DLC.addNVP("country", "NoLocalPeer", e);
+                } else {
+                    DLC.addNVP("country", country(localPeer), e);
+                }
+                break;
+            }
+            case OPERATION_REMOTE_PEER_COUNTRY: {
+                NetworkPeer remotePeer = (NetworkPeer)DLC.getValue("remotePeer", e);
+                if(remotePeer==null) {
+                    DLC.addNVP("country", "NoRemotePeer", e);
+                } else {
+                    DLC.addNVP("country", country(remotePeer), e);
+                }
+                break;
+            }
             default: {
                 LOG.warning("Operation ("+r.getOperation()+") not supported. Sending to Dead Letter queue.");
                 deadLetter(e);
@@ -92,12 +116,12 @@ public final class I2PService extends NetworkService {
         }
     }
 
-    private NetworkClientSession establishSession(String address, Boolean autoConnect) {
+    private I2PSessionBase establishSession(String address, Boolean autoConnect) {
         if(address==null) {
             address = "default";
         }
         if(sessions.get(address)==null) {
-            NetworkClientSession session = embedded ? new I2PSessionEmbedded(this) : new I2PSessionExternal(this);
+            I2PSessionBase session = embedded ? new I2PSessionEmbedded(this) : new I2PSessionExternal(this);
             session.init(config);
             session.open(null);
             if (autoConnect) {
@@ -469,8 +493,8 @@ public final class I2PService extends NetworkService {
                 restart();
                 break;
             case DIFFERENT:
-                LOG.warning("Symmetric NAT: Error connecting to I2P Network.");
-                updateNetworkStatus(NetworkStatus.ERROR);
+                LOG.warning("Symmetric NAT: We are behind a symmetric NAT which will make our 'from' address look differently when we talk to multiple people.");
+                updateNetworkStatus(NetworkStatus.BLOCKED);
                 break;
             case HOSED:
                 LOG.warning("Unable to open UDP port for I2P - Port Conflict. Verify another instance of I2P is not running.");
@@ -508,6 +532,64 @@ public final class I2PService extends NetworkService {
             LOG.info("I2P Router Status changed to: "+i2pRouterStatus.name());
             reportRouterStatus();
         }
+    }
+
+    private Integer activePeersCount() {
+        return routerContext.commSystem().countActivePeers();
+    }
+
+    private Boolean unreachable(NetworkPeer networkPeer) {
+        if(networkPeer==null || networkPeer.getDid().getPublicKey().getAddress()==null) {
+            LOG.warning("Network Peer with address is required to determine if peer is unreachable.");
+            return false;
+        }
+        I2PSessionBase session = establishSession("default", true);
+        Destination dest = session.lookupDest(networkPeer.getDid().getPublicKey().getAddress());
+        return routerContext.commSystem().wasUnreachable(dest.getHash());
+    }
+
+    private Boolean inStrictCountry() {
+        return routerContext.commSystem().isInStrictCountry();
+    }
+
+    private Boolean inStrictCountry(NetworkPeer networkPeer) {
+        if(networkPeer==null || networkPeer.getDid().getPublicKey().getAddress()==null) {
+            LOG.warning("Network Peer with address is required to determine if peer is in strict country.");
+            return false;
+        }
+        I2PSessionBase session = establishSession("default", true);
+        Destination dest = session.lookupDest(networkPeer.getDid().getPublicKey().getAddress());
+        return routerContext.commSystem().isInStrictCountry(dest.getHash());
+    }
+
+    private Boolean backlogged(NetworkPeer networkPeer) {
+        if(networkPeer==null || networkPeer.getDid().getPublicKey().getAddress()==null) {
+            LOG.warning("Network Peer with address is required to determine if peer is backlogged.");
+            return false;
+        }
+        I2PSessionBase session = establishSession("default", true);
+        Destination dest = session.lookupDest(networkPeer.getDid().getPublicKey().getAddress());
+        return routerContext.commSystem().isBacklogged(dest.getHash());
+    }
+
+    private Boolean established(NetworkPeer networkPeer) {
+        if(networkPeer==null || networkPeer.getDid().getPublicKey().getAddress()==null) {
+            LOG.warning("Network Peer with address is required to determine if peer is established.");
+            return false;
+        }
+        I2PSessionBase session = establishSession("default", true);
+        Destination dest = session.lookupDest(networkPeer.getDid().getPublicKey().getAddress());
+        return routerContext.commSystem().isEstablished(dest.getHash());
+    }
+
+    private String country(NetworkPeer networkPeer) {
+        if(networkPeer==null || networkPeer.getDid().getPublicKey().getAddress()==null) {
+            LOG.warning("Network Peer with address is required to determine country of peer.");
+            return "NoPeer";
+        }
+        I2PSessionBase session = establishSession("default", true);
+        Destination dest = session.lookupDest(networkPeer.getDid().getPublicKey().getAddress());
+        return routerContext.commSystem().getCountry(dest.getHash());
     }
 
     /**
