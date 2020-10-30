@@ -1,6 +1,6 @@
 # I2P Service
 Invisible Internet Project (I2P) Service. Wraps an I2P Router as a service so that it can be easily managed
-and used by 3rd party decentralized applications. Currently only an embedded I2P router is supported which
+and used by 3rd party decentralized applications. Currently, only an embedded I2P router is supported which
 may conflict with any already running I2P router due to port conflicts. Future support will include detection of and connecting
 to a local instance of the I2P Router.
 
@@ -9,6 +9,9 @@ to a local instance of the I2P Router.
 to be copied to resources/certificates keeping reseed and ssl as directories:
     - /installer/resources/certificates/reseed
     - /installer/resources/certificates/ssl
+
+## Roadmap
+* 1.0.0: Basic P2P communications using embedded I2P router.
 
 ## Integration
 
@@ -33,13 +36,16 @@ https://github.com/i2p-zero/i2p-zero
 
 ## Removal
 
-### Linux
+### Raspian
 
 #### I2P External Router
+Note: Not yet supported
+```
 sudo apt remove i2p
 sudo apt remove i2prouter
 sudo apt autoremove
 sudo apt autoclean
+```
 
 ## Attack Mitigation
 
@@ -54,7 +60,7 @@ sudo apt autoclean
 - upgraded to 0.9.45
 
 ### 0.6.3
-- upgraded to 0.9.44
+- upgraded to 0.9.43
 
 ### 0.6.2
 - upgraded to 0.9.41
@@ -63,6 +69,9 @@ sudo apt autoclean
 - added blocklist.txt for reference
 
 Note: I believe built-in-peers.txt is no longer used; couldn't find an update
+
+### 0.6.1
+- upgraded to 0.9.39
 
 ### 0.6.0
 - upgraded to 0.9.37
