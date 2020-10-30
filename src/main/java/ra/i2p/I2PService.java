@@ -46,6 +46,10 @@ public final class I2PService extends NetworkService {
     public static final String OPERATION_CHECK_ROUTER_STATUS = "CHECK_ROUTER_STATUS";
     public static final String OPERATION_LOCAL_PEER_COUNTRY = "LOCAL_PEER_COUNTRY";
     public static final String OPERATION_REMOTE_PEER_COUNTRY = "REMOTE_PEER_COUNTRY";
+    public static final String OPERATION_IN_STRICT_COUNTRY = "IN_STRICT_COUNTRY";
+    public static final String OPERATION_UPDATE_HIDDEN_MODE = "UPDATE_HIDDEN_MODE";
+    public static final String OPERATION_UPDATE_SHARE_PERCENTAGE = "UPDATE_SHARE_PERCENTAGE";
+    public static final String OPERATION_UPDATE_GEOIP_ENABLEMENT = "UPDATE_GEOIP_ENABLEMENT";
 
     /**
      * 1 = ElGamal-2048 / DSA-1024
@@ -109,6 +113,36 @@ public final class I2PService extends NetworkService {
                 }
                 break;
             }
+            case OPERATION_IN_STRICT_COUNTRY: {
+                NetworkPeer peer = (NetworkPeer)DLC.getValue("peer", e);
+                if(peer==null) {
+                    DLC.addNVP("country", "PeerNotProvided", e);
+                } else {
+                    DLC.addNVP("country", inStrictCountry(peer), e);
+                }
+                break;
+            }
+            case OPERATION_UPDATE_HIDDEN_MODE: {
+                Object hiddenModeObj = DLC.getValue("hiddenMode", e);
+                if(hiddenModeObj!=null) {
+                    updateHiddenMode((((String)hiddenModeObj).toLowerCase()).equals("true"));
+                }
+                break;
+            }
+            case OPERATION_UPDATE_SHARE_PERCENTAGE: {
+                Object sharePerc = DLC.getValue("sharePercentage", e);
+                if(sharePerc!=null) {
+                    updateSharePercentage(Integer.parseInt((String)sharePerc));
+                }
+                break;
+            }
+            case OPERATION_UPDATE_GEOIP_ENABLEMENT: {
+                Object sharePerc = DLC.getValue("enableGeoIP", e);
+                if(sharePerc!=null) {
+                    updateGeoIPEnablement((((String)sharePerc).toLowerCase()).equals("true"));
+                }
+                break;
+            }
             default: {
                 LOG.warning("Operation ("+r.getOperation()+") not supported. Sending to Dead Letter queue.");
                 deadLetter(e);
@@ -121,7 +155,7 @@ public final class I2PService extends NetworkService {
             address = "default";
         }
         if(sessions.get(address)==null) {
-            I2PSessionBase session = embedded ? new I2PSessionEmbedded(this) : new I2PSessionExternal(this);
+            I2PSessionBase session = embedded ? new I2PSessionEmbedded(this) : new I2PSessionLocal(this);
             session.init(config);
             session.open(null);
             if (autoConnect) {
@@ -148,14 +182,41 @@ public final class I2PService extends NetworkService {
         return i2pDir;
     }
 
-    public void updateState(NetworkState networkState) {
-        if(this.getNetworkState().params.get(Router.PROP_HIDDEN)!=null
-                && networkState.params.get(Router.PROP_HIDDEN)!=null
-                && this.getNetworkState().params.get(Router.PROP_HIDDEN)!= networkState.params.get(Router.PROP_HIDDEN)) {
+    private void updateHiddenMode(boolean hiddenMode) {
+        String hiddenModeStr = hiddenMode?"true":"false";
+        if(!(getNetworkState().params.get(Router.PROP_HIDDEN)).equals(hiddenModeStr)) {
             // Hidden mode changed so change for Router and restart
-            this.getNetworkState().params.put(Router.PROP_HIDDEN, networkState.params.get(Router.PROP_HIDDEN));
-            router.saveConfig(Router.PROP_HIDDEN, (String) this.getNetworkState().params.get(Router.PROP_HIDDEN));
-            restart();
+            this.getNetworkState().params.put(Router.PROP_HIDDEN, hiddenModeStr);
+            if (router.saveConfig(Router.PROP_HIDDEN, hiddenModeStr)) {
+                restart();
+            } else {
+                LOG.warning("Unable to update " + Router.PROP_HIDDEN);
+            }
+        }
+    }
+
+    public void updateSharePercentage(int sharePercentage) {
+        if(!(getNetworkState().params.get("router.sharePercentage")).equals(String.valueOf(sharePercentage))) {
+            // Share Percentage changed so change for Router and restart
+            this.getNetworkState().params.put(Router.PROP_HIDDEN, String.valueOf(sharePercentage));
+            if (router.saveConfig(Router.PROP_HIDDEN, String.valueOf(sharePercentage))) {
+                restart();
+            } else {
+                LOG.warning("Unable to update router.sharePercentage");
+            }
+        }
+    }
+
+    public void updateGeoIPEnablement(boolean enableGeoIP) {
+        String enableGeoIPStr = enableGeoIP?"true":"false";
+        if(!(getNetworkState().params.get("routerconsole.geoip.enable")).equals(enableGeoIPStr)) {
+            // Hidden mode changed so change for Router and restart
+            this.getNetworkState().params.put("routerconsole.geoip.enable", enableGeoIPStr);
+            if (router.saveConfig("routerconsole.geoip.enable", enableGeoIPStr)) {
+                restart();
+            } else {
+                LOG.warning("Unable to update routerconsole.geoip.enable");
+            }
         }
     }
 
@@ -345,31 +406,30 @@ public final class I2PService extends NetworkService {
     public boolean restart() {
         if(router==null) {
             router = routerContext.router();
-        }
-        if(router != null) {
-            if(restartAttempts.equals(RESTART_ATTEMPTS_UNTIL_HARD_RESTART)) {
-                LOG.info("Full restart of I2P Router...");
-                if(!shutdown()) {
-                    LOG.warning("Issues shutting down I2P Router. Will attempt to start regardless...");
-                }
-                if(!start(config)) {
-                    LOG.warning("Issues starting I2P Router.");
-                    return false;
-                } else {
-                    LOG.info("Hard restart of I2P Router completed.");
-                }
-            } else {
-                LOG.info("Soft restart of I2P Router...");
-                updateStatus(ServiceStatus.RESTARTING);
-                router.restart();
-                LOG.info("Router hiddenMode="+router.isHidden());
-                LOG.info("I2P Router soft restart completed.");
+            if(router==null) {
+                LOG.severe("Unable to restart I2P Router. Router instance not found in RouterContext.");
+                return false;
             }
-            return true;
-        } else {
-            LOG.warning("Unable to restart I2P Router. Router instance not found in RouterContext.");
         }
-        return false;
+        if(restartAttempts.equals(RESTART_ATTEMPTS_UNTIL_HARD_RESTART)) {
+            LOG.info("Full restart of I2P Router...");
+            if(!shutdown()) {
+                LOG.warning("Issues shutting down I2P Router. Will attempt to start regardless...");
+            }
+            if(!start(config)) {
+                LOG.warning("Issues starting I2P Router.");
+                return false;
+            } else {
+                LOG.info("Hard restart of I2P Router completed.");
+            }
+        } else {
+            LOG.info("Soft restart of I2P Router...");
+            updateStatus(ServiceStatus.RESTARTING);
+            router.restart();
+            LOG.info("Router hiddenMode="+router.isHidden());
+            LOG.info("I2P Router soft restart completed.");
+        }
+        return true;
     }
 
     @Override

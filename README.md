@@ -1,5 +1,8 @@
 # I2P Service
-Invisible Internet Project (I2P) Service
+Invisible Internet Project (I2P) Service. Wraps an I2P Router as a service so that it can be easily managed
+and used by 3rd party decentralized applications. Currently only an embedded I2P router is supported which
+may conflict with any already running I2P router due to port conflicts. Future support will include detection of and connecting
+to a local instance of the I2P Router.
 
 ## Build Notes
 - Required certificates from the following two directories in the i2p.i2p project (I2P Router core)

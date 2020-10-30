@@ -49,15 +49,11 @@ class I2PSessionEmbedded extends I2PSessionBase implements I2PSessionMuxedListen
             "outbound.backupQuantity",
     });
 
-    private I2PService service;
-    private boolean connected = false;
     private I2PSocketManager socketManager;
     private boolean isTest = false;
-    private String address;
 
     public I2PSessionEmbedded(I2PService service) {
-        super();
-        this.service = service;
+        super(service);
     }
 
     public String getAddress() {
@@ -85,7 +81,6 @@ class I2PSessionEmbedded extends I2PSessionBase implements I2PSessionMuxedListen
     @Override
     public boolean open(String i2pAddress) {
         LOG.info("Opening connection...");
-        address = i2pAddress;
         NetworkPeer localI2PPeer = service.getNetworkState().localPeer;
         // read the local destination key from the key file if it exists
         String alias = "anon";
@@ -161,7 +156,7 @@ class I2PSessionEmbedded extends I2PSessionBase implements I2PSessionMuxedListen
         if(localI2PPeer.getDid().getPublicKey().getAddress()==null
                 || localI2PPeer.getDid().getPublicKey().getAddress().isEmpty()) {
             Destination localDestination = i2pSession.getMyDestination();
-            String address = localDestination.toBase64();
+            address = localDestination.toBase64();
             String fingerprint = localDestination.calculateHash().toBase64();
             String algorithm = localDestination.getPublicKey().getType().getAlgorithmName();
             // Ensure network is correct
@@ -184,6 +179,11 @@ class I2PSessionEmbedded extends I2PSessionBase implements I2PSessionMuxedListen
         service.getNetworkState().localPeer = localI2PPeer;
         LOG.info("I2PSensor Address in base64: " + localI2PPeer.getDid().getPublicKey().getAddress());
         LOG.info("I2PSensor Fingerprint (hash) in base64: " + localI2PPeer.getDid().getPublicKey().getFingerprint());
+        // Update Peer Manager
+        Envelope pEnv = Envelope.documentFactory();
+        DLC.addContent(localI2PPeer, pEnv);
+        DLC.addRoute("ra.peermanager.PeerManagerService","UPDATE_PEER", pEnv);
+        service.send(pEnv);
         return true;
     }
 
@@ -366,6 +366,16 @@ class I2PSessionEmbedded extends I2PSessionBase implements I2PSessionMuxedListen
             } else {
                 if (!service.send(envelope)) {
                     LOG.warning("Unsuccessful sending of Envelope to bus.");
+                }
+                // Update Peer Manager with Origination Peer
+                ExternalRoute externalRoute = (ExternalRoute)envelope.getRoute();
+                NetworkPeer remotePeer = externalRoute.getOrigination();
+                if(remotePeer!=null) {
+                    // Not an anonymous message
+                    Envelope pEnv = Envelope.documentFactory();
+                    DLC.addContent(remotePeer, pEnv);
+                    DLC.addRoute("ra.peermanager.PeerManagerService", "UPDATE_PEER", pEnv);
+                    service.send(pEnv);
                 }
             }
         } catch (DataFormatException e) {
