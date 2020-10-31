@@ -79,8 +79,10 @@ public final class I2PService extends NetworkService {
     private TaskRunner taskRunner;
     private Map<String, I2PSessionBase> sessions = new HashMap<>();
 
+    Integer maxKnownPeers = 500;
+
     public I2PService(MessageProducer messageProducer, ServiceStatusListener listener) {
-        super("I2P", messageProducer, listener);
+        super(Network.I2P.name(), messageProducer, listener);
     }
 
     @Override
@@ -236,6 +238,9 @@ public final class I2PService extends NetworkService {
             LOG.severe(e.getLocalizedMessage());
             return false;
         }
+        if(config.getProperty("ra.i2p.maxKnownPeers")!=null) {
+            maxKnownPeers = Integer.parseInt(config.getProperty("ra.i2p.maxKnownPeers"));
+        }
         isTest = "true".equals(config.getProperty("ra.i2p.isTest"));
         // Look for another instance installed
         if(System.getProperty("i2p.dir.base")==null) {
@@ -384,10 +389,18 @@ public final class I2PService extends NetworkService {
         routerContext.logManager().setDefaultLimit(Log.STR_INFO);
         routerContext.logManager().setFileSize(100000000); // 100 MB
 
+        NetworkPeer directorySeed = new NetworkPeer(Network.I2P.name());
+        directorySeed.getDid().getPublicKey().setFingerprint(config.getProperty("ra.directory.seed.fingerprint"));
+        directorySeed.getDid().getPublicKey().setAddress(config.getProperty("ra.directory.seed.address"));
+        seedPeers.put(directorySeed.getDid().getPublicKey().getFingerprint(), directorySeed);
+
         if(taskRunner==null) {
             taskRunner = new TaskRunner(2, 2);
             taskRunner.setPeriodicity(2 * 1000L);
             taskRunner.addTask(new CheckRouterStatus(this,taskRunner));
+            I2PNetworkDiscovery discovery = new I2PNetworkDiscovery(this, seedPeers, taskRunner);
+            discovery.setPeriodicity(90 * 1000L); // Set periodicity to I2P Network timeout of 90 seconds
+            taskRunner.addTask(discovery);
         }
 
         taskRunnerThread = new Thread(taskRunner);
@@ -600,11 +613,11 @@ public final class I2PService extends NetworkService {
         }
     }
 
-    private Integer activePeersCount() {
+    Integer activePeersCount() {
         return routerContext.commSystem().countActivePeers();
     }
 
-    private Boolean unreachable(NetworkPeer networkPeer) {
+    Boolean unreachable(NetworkPeer networkPeer) {
         if(networkPeer==null || networkPeer.getDid().getPublicKey().getAddress()==null) {
             LOG.warning("Network Peer with address is required to determine if peer is unreachable.");
             return false;
@@ -614,11 +627,11 @@ public final class I2PService extends NetworkService {
         return routerContext.commSystem().wasUnreachable(dest.getHash());
     }
 
-    private Boolean inStrictCountry() {
+    Boolean inStrictCountry() {
         return routerContext.commSystem().isInStrictCountry();
     }
 
-    private Boolean inStrictCountry(NetworkPeer networkPeer) {
+    Boolean inStrictCountry(NetworkPeer networkPeer) {
         if(networkPeer==null || networkPeer.getDid().getPublicKey().getAddress()==null) {
             LOG.warning("Network Peer with address is required to determine if peer is in strict country.");
             return false;
@@ -628,7 +641,7 @@ public final class I2PService extends NetworkService {
         return routerContext.commSystem().isInStrictCountry(dest.getHash());
     }
 
-    private Boolean backlogged(NetworkPeer networkPeer) {
+    Boolean backlogged(NetworkPeer networkPeer) {
         if(networkPeer==null || networkPeer.getDid().getPublicKey().getAddress()==null) {
             LOG.warning("Network Peer with address is required to determine if peer is backlogged.");
             return false;
@@ -638,7 +651,7 @@ public final class I2PService extends NetworkService {
         return routerContext.commSystem().isBacklogged(dest.getHash());
     }
 
-    private Boolean established(NetworkPeer networkPeer) {
+    Boolean established(NetworkPeer networkPeer) {
         if(networkPeer==null || networkPeer.getDid().getPublicKey().getAddress()==null) {
             LOG.warning("Network Peer with address is required to determine if peer is established.");
             return false;
@@ -648,7 +661,7 @@ public final class I2PService extends NetworkService {
         return routerContext.commSystem().isEstablished(dest.getHash());
     }
 
-    private String country(NetworkPeer networkPeer) {
+    String country(NetworkPeer networkPeer) {
         if(networkPeer==null || networkPeer.getDid().getPublicKey().getAddress()==null) {
             LOG.warning("Network Peer with address is required to determine country of peer.");
             return "NoPeer";

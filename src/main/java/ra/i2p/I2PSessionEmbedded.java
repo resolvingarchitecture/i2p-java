@@ -21,6 +21,7 @@ import ra.common.Envelope;
 import ra.common.identity.DID;
 import ra.common.network.*;
 import ra.common.route.ExternalRoute;
+import ra.common.route.SimpleExternalRoute;
 import ra.util.JSONParser;
 
 import java.io.*;
@@ -159,6 +160,9 @@ class I2PSessionEmbedded extends I2PSessionBase implements I2PSessionMuxedListen
             address = localDestination.toBase64();
             String fingerprint = localDestination.calculateHash().toBase64();
             String algorithm = localDestination.getPublicKey().getType().getAlgorithmName();
+            // Only for testing; remove for production
+            String country = service.country(localI2PPeer);
+            LOG.info("Local peer in: "+country);
             // Ensure network is correct
             localI2PPeer.setNetwork(I2PService.class.getName());
             // Add destination to PK and update DID info
@@ -351,32 +355,40 @@ class I2PSessionEmbedded extends I2PSessionBase implements I2PSessionMuxedListen
             byte[] payload = d.getPayload();
             String strPayload = new String(payload);
             LOG.info("Getting sender as I2P Destination...");
+            NetworkPeer origination = new NetworkPeer(Network.I2P.name());
             Destination sender = d.getSender();
             String address = sender.toBase64();
+            origination.getDid().getPublicKey().setAddress(address);
             String fingerprint = sender.getHash().toBase64();
+            origination.getDid().getPublicKey().setFingerprint(fingerprint);
             LOG.info("Received I2P Message:\n\tFrom: " + address +"\n\tContent:\n\t" + strPayload);
             Map<String, Object> pm = (Map<String, Object>) JSONParser.parse(strPayload);
-            String type = (String) pm.get("type");
-            LOG.info("Type discovered: " + type);
-            Object obj = Class.forName(type).getConstructor().newInstance();
-            Envelope envelope = (Envelope)obj;
-            if(DLC.markerPresent("NetOp", envelope)) {
-                // TODO: Handle Network Op
-                LOG.warning("Network Ops not yet handled.");
+            Envelope envelope = Envelope.documentFactory();
+            envelope.fromMap(pm);
+            if(DLC.markerPresent("NetOpRes", envelope)) {
+                LOG.info("NetOpRes received...");
+                List<NetworkPeer> recommendedPeers = (List<NetworkPeer>)DLC.getContent(envelope);
+                LOG.info(recommendedPeers.size()+" Known Peers Received.");
+                service.addToKnownPeers(recommendedPeers);
+                LOG.info(service.getNumberKnownPeers()+" Total Peers Known");
+            } else if(DLC.markerPresent("NetOpReq", envelope)) {
+                LOG.info("NetOpReq received...");
+                DLC.mark("NetOpRes", envelope);
+                DLC.addContent(service.getKnownPeers(), envelope);
+                DLC.addExternalRoute(I2PService.class, I2PService.OPERATION_SEND, envelope, service.getNetworkState().localPeer, origination);
+                envelope.getDynamicRoutingSlip().nextRoute(); // Ratchet
+                send(envelope);
             } else {
                 if (!service.send(envelope)) {
                     LOG.warning("Unsuccessful sending of Envelope to bus.");
                 }
+                // Update local cache
+                service.addKnownPeer(origination);
                 // Update Peer Manager with Origination Peer
-                ExternalRoute externalRoute = (ExternalRoute)envelope.getRoute();
-                NetworkPeer remotePeer = externalRoute.getOrigination();
-                if(remotePeer!=null) {
-                    // Not an anonymous message
-                    Envelope pEnv = Envelope.documentFactory();
-                    DLC.addContent(remotePeer, pEnv);
-                    DLC.addRoute("ra.peermanager.PeerManagerService", "UPDATE_PEER", pEnv);
-                    service.send(pEnv);
-                }
+                Envelope pEnv = Envelope.documentFactory();
+                DLC.addContent(origination, pEnv);
+                DLC.addRoute("ra.peermanager.PeerManagerService", "UPDATE_PEER", pEnv);
+                service.send(pEnv);
             }
         } catch (DataFormatException e) {
             e.printStackTrace();
