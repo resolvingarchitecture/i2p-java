@@ -399,13 +399,10 @@ class I2PSessionEmbedded extends I2PSessionBase implements I2PSessionMuxedListen
                 service.send(pEnv);
             }
         } catch (DataFormatException e) {
-            e.printStackTrace();
             LOG.warning("Invalid datagram received: " + e.getLocalizedMessage());
         } catch (I2PInvalidDatagramException e) {
-            e.printStackTrace();
             LOG.warning("Datagram failed verification: " + e.getLocalizedMessage());
         } catch (Exception e) {
-            e.printStackTrace();
             LOG.severe("Error processing datagram: " + e.getLocalizedMessage());
         }
     }
