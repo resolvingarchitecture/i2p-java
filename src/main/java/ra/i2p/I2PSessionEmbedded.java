@@ -316,6 +316,7 @@ class I2PSessionEmbedded extends I2PSessionBase implements I2PSessionMuxedListen
             if("Already closed".equals(e.getLocalizedMessage())) {
                 LOG.info("I2P Connection closed. Could be no internet access, getting blocked, or forced shutdown of I2P router. Assume blocked for re-route. If not blocked, I2P will automatically re-establish connection when network access returns.");
                 service.getNetworkState().networkStatus = NetworkStatus.BLOCKED;
+                service.restart();
             }
             return false;
         }

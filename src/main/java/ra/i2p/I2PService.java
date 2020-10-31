@@ -444,6 +444,16 @@ public final class I2PService extends NetworkService {
             LOG.info("Soft restart of I2P Router...");
             updateStatus(ServiceStatus.RESTARTING);
             router.restart();
+            int maxWaitSec = 10 * 60; // 10 minutes
+            int currentWait = 0;
+            while(!routerContext.router().isAlive()) {
+                Wait.aSec(10);
+                currentWait+=10;
+                if(currentWait > maxWaitSec) {
+                    LOG.warning("Restart failed.");
+                    return false;
+                }
+            }
             LOG.info("Router hiddenMode="+router.isHidden());
             LOG.info("I2P Router soft restart completed.");
         }
