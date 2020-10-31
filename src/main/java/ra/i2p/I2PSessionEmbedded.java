@@ -277,7 +277,7 @@ class I2PSessionEmbedded extends I2PSessionBase implements I2PSessionMuxedListen
             envelope.getMessage().addErrorMessage("Code:" + ExternalRoute.DESTINATION_PEER_REQUIRED+", Destination Peer Required.");
             return false;
         }
-        if (!"I2P".equals(er.getDestination().getNetwork())) {
+        if (!Network.I2P.name().equals(er.getDestination().getNetwork())) {
             LOG.warning("Not an envelope for I2P.");
             envelope.getMessage().addErrorMessage("Code:" + ExternalRoute.DESTINATION_PEER_WRONG_NETWORK+", Not meant for I2P Network.");
             return false;

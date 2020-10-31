@@ -33,6 +33,8 @@ public class I2PNetworkDiscovery extends BaseTask {
                     Envelope e = Envelope.documentFactory();
                     DLC.addExternalRoute(I2PService.class, I2PService.OPERATION_SEND, e, service.getNetworkState().localPeer, seed);
                     DLC.mark("NetOpReq", e);
+                    // Ratchet
+                    e.getDynamicRoutingSlip().nextRoute();
                     service.sendOut(e);
                 }
             }
