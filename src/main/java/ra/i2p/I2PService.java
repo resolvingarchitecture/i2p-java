@@ -50,6 +50,7 @@ public final class I2PService extends NetworkService {
     public static final String OPERATION_UPDATE_HIDDEN_MODE = "UPDATE_HIDDEN_MODE";
     public static final String OPERATION_UPDATE_SHARE_PERCENTAGE = "UPDATE_SHARE_PERCENTAGE";
     public static final String OPERATION_UPDATE_GEOIP_ENABLEMENT = "UPDATE_GEOIP_ENABLEMENT";
+    public static final String OPERATION_ACTIVE_PEERS_COUNT = "ACTIVE_PEERS_COUNT";
 
     /**
      * 1 = ElGamal-2048 / DSA-1024
@@ -116,9 +117,9 @@ public final class I2PService extends NetworkService {
             case OPERATION_IN_STRICT_COUNTRY: {
                 NetworkPeer peer = (NetworkPeer)DLC.getValue("peer", e);
                 if(peer==null) {
-                    DLC.addNVP("country", "PeerNotProvided", e);
+                    DLC.addNVP("localPeerCountry", inStrictCountry(), e);
                 } else {
-                    DLC.addNVP("country", inStrictCountry(peer), e);
+                    DLC.addNVP("peerCountry", inStrictCountry(peer), e);
                 }
                 break;
             }
@@ -141,6 +142,11 @@ public final class I2PService extends NetworkService {
                 if(sharePerc!=null) {
                     updateGeoIPEnablement((((String)sharePerc).toLowerCase()).equals("true"));
                 }
+                break;
+            }
+            case OPERATION_ACTIVE_PEERS_COUNT: {
+                Integer count = activePeersCount();
+                DLC.addNVP("activePeersCount", count, e);
                 break;
             }
             default: {
