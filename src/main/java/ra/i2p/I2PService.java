@@ -185,7 +185,7 @@ public final class I2PService extends NetworkService {
      * @return boolean was successful
      */
     public Boolean sendOut(Envelope envelope) {
-        LOG.info("Send out Envelope over I2P...");
+        LOG.fine("Send out Envelope over I2P...");
         NetworkClientSession session = establishSession(null, true);
         return session.send(envelope);
     }

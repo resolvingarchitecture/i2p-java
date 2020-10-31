@@ -284,7 +284,7 @@ class I2PSessionEmbedded extends I2PSessionBase implements I2PSessionMuxedListen
             return false;
         }
 
-        LOG.info("Sending Envelope id="+envelope.getId()+" to="+er.getDestination().getDid().getPublicKey().getFingerprint());
+        LOG.info("Sending Envelope id: "+envelope.getId()+" to: "+er.getDestination().getDid().getPublicKey().getFingerprint());
         String content = envelope.toJSON();
         LOG.fine("Content to send: \n\t" + content);
         if (content.length() > 31500) {
@@ -302,7 +302,7 @@ class I2PSessionEmbedded extends I2PSessionBase implements I2PSessionMuxedListen
             I2PDatagramMaker m = new I2PDatagramMaker(i2pSession);
             byte[] payload = m.makeI2PDatagram(content.getBytes());
             if(i2pSession.sendMessage(destination, payload, I2PSession.PROTO_UNSPECIFIED, I2PSession.PORT_ANY, I2PSession.PORT_ANY)) {
-                LOG.info("I2P Message sent.");
+                LOG.fine("I2P Message sent.");
                 return true;
             } else {
                 LOG.warning("I2P Message sending failed.");
@@ -357,13 +357,13 @@ class I2PSessionEmbedded extends I2PSessionBase implements I2PSessionMuxedListen
 //            sensor.updateStatus(SensorStatus.NETWORK_VERIFIED);
 //        }
         try {
-            LOG.info("Loading I2P Datagram...");
+            LOG.fine("Loading I2P Datagram...");
             I2PDatagramDissector d = new I2PDatagramDissector();
             d.loadI2PDatagram(msg);
-            LOG.info("I2P Datagram loaded.");
+            LOG.fine("I2P Datagram loaded.");
             byte[] payload = d.getPayload();
             String strPayload = new String(payload);
-            LOG.info("Getting sender as I2P Destination...");
+            LOG.fine("Getting sender as I2P Destination...");
             NetworkPeer origination = new NetworkPeer(Network.I2P.name());
             Destination sender = d.getSender();
             String address = sender.toBase64();
@@ -373,7 +373,7 @@ class I2PSessionEmbedded extends I2PSessionBase implements I2PSessionMuxedListen
             Map<String, Object> pm = (Map<String, Object>) JSONParser.parse(strPayload);
             Envelope envelope = Envelope.documentFactory();
             envelope.fromMap(pm);
-            LOG.info("Received Envelope id="+envelope.getId()+" from="+fingerprint);
+            LOG.info("Received Envelope id: "+envelope.getId()+" from: "+fingerprint);
             LOG.fine("Content Received: \n\t"+strPayload);
             if(DLC.markerPresent("NetOpRes", envelope)) {
                 LOG.info("NetOpRes received...");
