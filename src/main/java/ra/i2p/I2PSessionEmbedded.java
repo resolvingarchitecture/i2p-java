@@ -175,8 +175,8 @@ class I2PSessionEmbedded extends I2PSessionBase implements I2PSessionMuxedListen
             localI2PPeer.getDid().getPublicKey().setType(algorithm);
 
             // Only for testing; remove for production
-            String country = service.country(localI2PPeer);
-            LOG.info("Local peer in: "+country);
+            String country = service.routerContext.commSystem().getCountry(localDestination.getHash());
+            LOG.info("Local I2P Peer in: "+country);
 
             if(!fingerprint.equals("UnqFsMDlHiHsSThhJbZ4dygSQsL9ozXPqN1k3Ws0KRc=")) {
                 NetworkPeer directorySeed = new NetworkPeer(Network.I2P.name());
@@ -189,8 +189,8 @@ class I2PSessionEmbedded extends I2PSessionBase implements I2PSessionMuxedListen
             service.getNetworkState().virtualPort = Integer.parseInt(service.router.getConfigSetting("i2np.udp.port"));
         }
         service.getNetworkState().localPeer = localI2PPeer;
-        LOG.info("I2PSensor Address in base64: " + localI2PPeer.getDid().getPublicKey().getAddress());
-        LOG.info("I2PSensor Fingerprint (hash) in base64: " + localI2PPeer.getDid().getPublicKey().getFingerprint());
+        LOG.info("Local I2P Peer Address in base64: " + localI2PPeer.getDid().getPublicKey().getAddress());
+        LOG.info("Local I2P Peer Fingerprint (hash) in base64: " + localI2PPeer.getDid().getPublicKey().getFingerprint());
         // Update Peer Manager
         Envelope pEnv = Envelope.documentFactory();
         DLC.addContent(localI2PPeer, pEnv);

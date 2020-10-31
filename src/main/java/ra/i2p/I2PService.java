@@ -65,7 +65,7 @@ public final class I2PService extends NetworkService {
 
     // I2P Router and Context
     private File i2pDir;
-    private RouterContext routerContext;
+    RouterContext routerContext;
     Router router;
     protected CommSystemFacade.Status i2pRouterStatus;
 
@@ -207,7 +207,7 @@ public final class I2PService extends NetworkService {
         }
     }
 
-    public void updateSharePercentage(int sharePercentage) {
+    private void updateSharePercentage(int sharePercentage) {
         if(!(getNetworkState().params.get("router.sharePercentage")).equals(String.valueOf(sharePercentage))) {
             // Share Percentage changed so change for Router and restart
             this.getNetworkState().params.put(Router.PROP_HIDDEN, String.valueOf(sharePercentage));
@@ -219,7 +219,7 @@ public final class I2PService extends NetworkService {
         }
     }
 
-    public void updateGeoIPEnablement(boolean enableGeoIP) {
+    private void updateGeoIPEnablement(boolean enableGeoIP) {
         String enableGeoIPStr = enableGeoIP?"true":"false";
         if(!(getNetworkState().params.get("routerconsole.geoip.enable")).equals(enableGeoIPStr)) {
             // Hidden mode changed so change for Router and restart
@@ -612,11 +612,11 @@ public final class I2PService extends NetworkService {
         }
     }
 
-    Integer activePeersCount() {
+    private Integer activePeersCount() {
         return routerContext.commSystem().countActivePeers();
     }
 
-    Boolean unreachable(NetworkPeer networkPeer) {
+    private Boolean unreachable(NetworkPeer networkPeer) {
         if(networkPeer==null || networkPeer.getDid().getPublicKey().getAddress()==null) {
             LOG.warning("Network Peer with address is required to determine if peer is unreachable.");
             return false;
@@ -626,11 +626,11 @@ public final class I2PService extends NetworkService {
         return routerContext.commSystem().wasUnreachable(dest.getHash());
     }
 
-    Boolean inStrictCountry() {
+    private Boolean inStrictCountry() {
         return routerContext.commSystem().isInStrictCountry();
     }
 
-    Boolean inStrictCountry(NetworkPeer networkPeer) {
+    private Boolean inStrictCountry(NetworkPeer networkPeer) {
         if(networkPeer==null || networkPeer.getDid().getPublicKey().getAddress()==null) {
             LOG.warning("Network Peer with address is required to determine if peer is in strict country.");
             return false;
@@ -640,7 +640,7 @@ public final class I2PService extends NetworkService {
         return routerContext.commSystem().isInStrictCountry(dest.getHash());
     }
 
-    Boolean backlogged(NetworkPeer networkPeer) {
+    private Boolean backlogged(NetworkPeer networkPeer) {
         if(networkPeer==null || networkPeer.getDid().getPublicKey().getAddress()==null) {
             LOG.warning("Network Peer with address is required to determine if peer is backlogged.");
             return false;
@@ -650,7 +650,7 @@ public final class I2PService extends NetworkService {
         return routerContext.commSystem().isBacklogged(dest.getHash());
     }
 
-    Boolean established(NetworkPeer networkPeer) {
+    private Boolean established(NetworkPeer networkPeer) {
         if(networkPeer==null || networkPeer.getDid().getPublicKey().getAddress()==null) {
             LOG.warning("Network Peer with address is required to determine if peer is established.");
             return false;
@@ -660,7 +660,7 @@ public final class I2PService extends NetworkService {
         return routerContext.commSystem().isEstablished(dest.getHash());
     }
 
-    String country(NetworkPeer networkPeer) {
+    private String country(NetworkPeer networkPeer) {
         if(networkPeer==null || networkPeer.getDid().getPublicKey().getAddress()==null) {
             LOG.warning("Network Peer with address is required to determine country of peer.");
             return "NoPeer";
