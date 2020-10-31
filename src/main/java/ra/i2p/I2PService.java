@@ -393,11 +393,6 @@ public final class I2PService extends NetworkService {
         routerContext.logManager().setDefaultLimit(Log.STR_INFO);
         routerContext.logManager().setFileSize(100000000); // 100 MB
 
-        NetworkPeer directorySeed = new NetworkPeer(Network.I2P.name());
-        directorySeed.getDid().getPublicKey().setFingerprint(config.getProperty("ra.directory.seed.fingerprint"));
-        directorySeed.getDid().getPublicKey().setAddress(config.getProperty("ra.directory.seed.address"));
-        seedPeers.put(directorySeed.getDid().getPublicKey().getFingerprint(), directorySeed);
-
         if(taskRunner==null) {
             taskRunner = new TaskRunner(2, 2);
             taskRunner.setPeriodicity(2 * 1000L);
