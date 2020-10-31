@@ -284,8 +284,9 @@ class I2PSessionEmbedded extends I2PSessionBase implements I2PSessionMuxedListen
             return false;
         }
 
+        LOG.info("Sending Envelope id="+envelope.getId()+" to="+er.getDestination().getDid().getPublicKey().getFingerprint());
         String content = envelope.toJSON();
-        LOG.info("Content to send: " + content);
+        LOG.fine("Content to send: \n\t" + content);
         if (content.length() > 31500) {
             // Just warn for now
             // TODO: Split into multiple serialized packets
@@ -315,6 +316,7 @@ class I2PSessionEmbedded extends I2PSessionBase implements I2PSessionMuxedListen
             if("Already closed".equals(e.getLocalizedMessage())) {
                 LOG.info("I2P Connection closed. Could be no internet access or getting blocked. Assume blocked for re-route. If not blocked, I2P will automatically re-establish connection when network access returns.");
                 service.getNetworkState().networkStatus = NetworkStatus.BLOCKED;
+                service.restart();
             }
             return false;
         }
@@ -369,10 +371,11 @@ class I2PSessionEmbedded extends I2PSessionBase implements I2PSessionMuxedListen
             origination.getDid().getPublicKey().setAddress(address);
             String fingerprint = sender.getHash().toBase64();
             origination.getDid().getPublicKey().setFingerprint(fingerprint);
-            LOG.info("Received I2P Message:\n\tFrom: " + fingerprint +"\n\tContent:\n\t" + strPayload);
             Map<String, Object> pm = (Map<String, Object>) JSONParser.parse(strPayload);
             Envelope envelope = Envelope.documentFactory();
             envelope.fromMap(pm);
+            LOG.info("Received Envelope id="+envelope.getId()+" from="+fingerprint);
+            LOG.fine("Content Received: \n\t"+strPayload);
             if(DLC.markerPresent("NetOpRes", envelope)) {
                 LOG.info("NetOpRes received...");
                 List<NetworkPeer> recommendedPeers = (List<NetworkPeer>)DLC.getContent(envelope);
