@@ -192,10 +192,10 @@ class I2PSessionEmbedded extends I2PSessionBase implements I2PSessionMuxedListen
         LOG.info("Local I2P Peer Address in base64: " + localI2PPeer.getDid().getPublicKey().getAddress());
         LOG.info("Local I2P Peer Fingerprint (hash) in base64: " + localI2PPeer.getDid().getPublicKey().getFingerprint());
         // Update Peer Manager
-        Envelope pEnv = Envelope.documentFactory();
-        DLC.addContent(localI2PPeer, pEnv);
-        DLC.addRoute("ra.peermanager.PeerManagerService","UPDATE_PEER", pEnv);
-        service.send(pEnv);
+//        Envelope pEnv = Envelope.documentFactory();
+//        DLC.addContent(localI2PPeer, pEnv);
+//        DLC.addRoute("ra.peermanager.PeerManagerService","UPDATE_PEER", pEnv);
+//        service.send(pEnv);
         return true;
     }
 
