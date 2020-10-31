@@ -369,7 +369,7 @@ class I2PSessionEmbedded extends I2PSessionBase implements I2PSessionMuxedListen
             origination.getDid().getPublicKey().setAddress(address);
             String fingerprint = sender.getHash().toBase64();
             origination.getDid().getPublicKey().setFingerprint(fingerprint);
-            LOG.info("Received I2P Message:\n\tFrom: " + address +"\n\tContent:\n\t" + strPayload);
+            LOG.info("Received I2P Message:\n\tFrom: " + fingerprint +"\n\tContent:\n\t" + strPayload);
             Map<String, Object> pm = (Map<String, Object>) JSONParser.parse(strPayload);
             Envelope envelope = Envelope.documentFactory();
             envelope.fromMap(pm);
