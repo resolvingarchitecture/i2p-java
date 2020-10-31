@@ -81,6 +81,10 @@ public final class I2PService extends NetworkService {
 
     Integer maxKnownPeers = 500;
 
+    public I2PService() {
+        super(Network.I2P.name());
+    }
+
     public I2PService(MessageProducer messageProducer, ServiceStatusListener listener) {
         super(Network.I2P.name(), messageProducer, listener);
     }
