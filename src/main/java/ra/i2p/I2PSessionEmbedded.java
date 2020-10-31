@@ -373,18 +373,14 @@ class I2PSessionEmbedded extends I2PSessionBase implements I2PSessionMuxedListen
             Map<String, Object> pm = (Map<String, Object>) JSONParser.parse(strPayload);
             Envelope envelope = Envelope.documentFactory();
             envelope.fromMap(pm);
-            LOG.info("Received Envelope id: "+envelope.getId()+" from: "+fingerprint);
-            LOG.fine("Content Received: \n\t"+strPayload);
             if(DLC.markerPresent("NetOpRes", envelope)) {
-                LOG.info("NetOpRes received...");
                 List<NetworkPeer> recommendedPeers = (List<NetworkPeer>)DLC.getContent(envelope);
                 if(recommendedPeers!=null) {
                     LOG.info(recommendedPeers.size() + " Known Peers Received.");
                     service.addToKnownPeers(recommendedPeers);
                 }
-                LOG.info(service.getNumberKnownPeers()+" Total Peers Known");
+                LOG.info("Received NetOpRes id: "+envelope.getId()+" from: "+fingerprint + " total peers known: "+service.getNumberKnownPeers());
             } else if(DLC.markerPresent("NetOpReq", envelope)) {
-                LOG.info("NetOpReq received...");
                 List<NetworkPeer> recommendedPeers = (List<NetworkPeer>)DLC.getContent(envelope);
                 if(recommendedPeers!=null) {
                     LOG.info(recommendedPeers.size() + " Known Peers Received.");
@@ -395,18 +391,16 @@ class I2PSessionEmbedded extends I2PSessionBase implements I2PSessionMuxedListen
                 DLC.addExternalRoute(I2PService.class, I2PService.OPERATION_SEND, envelope, service.getNetworkState().localPeer, origination);
                 envelope.ratchet();
                 send(envelope);
+                LOG.info("Received NetOpReq id: "+envelope.getId()+" from: "+fingerprint+" total peers known: "+service.getNumberKnownPeers());
             } else {
                 if (!service.send(envelope)) {
                     LOG.warning("Unsuccessful sending of Envelope to bus.");
                 }
                 // Update local cache
                 service.addKnownPeer(origination);
-                // Update Peer Manager with Origination Peer
-                Envelope pEnv = Envelope.documentFactory();
-                DLC.addContent(origination, pEnv);
-                DLC.addRoute("ra.peermanager.PeerManagerService", "UPDATE_PEER", pEnv);
-                service.send(pEnv);
+                LOG.info("Received Envelope id: "+envelope.getId()+" from: "+fingerprint);
             }
+            LOG.fine("Content Received: \n\t"+strPayload);
         } catch (DataFormatException e) {
             LOG.warning("Invalid datagram received: " + e.getLocalizedMessage());
         } catch (I2PInvalidDatagramException e) {
