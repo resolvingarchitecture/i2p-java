@@ -341,7 +341,7 @@ class I2PSessionEmbedded extends I2PSessionBase implements I2PSessionMuxedListen
      */
     @Override
     public void messageAvailable(I2PSession session, int msgId, long size) {
-        LOG.info("Message received by I2P Service...");
+        LOG.fine("Message received by I2P Service...");
         byte[] msg;
         try {
             msg = session.receiveMessage(msgId);
