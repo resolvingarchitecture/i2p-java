@@ -160,9 +160,6 @@ class I2PSessionEmbedded extends I2PSessionBase implements I2PSessionMuxedListen
             address = localDestination.toBase64();
             String fingerprint = localDestination.calculateHash().toBase64();
             String algorithm = localDestination.getPublicKey().getType().getAlgorithmName();
-            // Only for testing; remove for production
-            String country = service.country(localI2PPeer);
-            LOG.info("Local peer in: "+country);
             // Ensure network is correct
             localI2PPeer.setNetwork(I2PService.class.getName());
             // Add destination to PK and update DID info
@@ -176,6 +173,10 @@ class I2PSessionEmbedded extends I2PSessionBase implements I2PSessionMuxedListen
             localI2PPeer.getDid().getPublicKey().setBase64Encoded(true);
             localI2PPeer.getDid().getPublicKey().setFingerprint(fingerprint);
             localI2PPeer.getDid().getPublicKey().setType(algorithm);
+
+            // Only for testing; remove for production
+            String country = service.country(localI2PPeer);
+            LOG.info("Local peer in: "+country);
 
             if(!fingerprint.equals("UnqFsMDlHiHsSThhJbZ4dygSQsL9ozXPqN1k3Ws0KRc=")) {
                 NetworkPeer directorySeed = new NetworkPeer(Network.I2P.name());

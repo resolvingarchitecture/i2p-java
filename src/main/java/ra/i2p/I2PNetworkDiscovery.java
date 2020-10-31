@@ -34,7 +34,7 @@ public class I2PNetworkDiscovery extends BaseTask {
                     DLC.addExternalRoute(I2PService.class, I2PService.OPERATION_SEND, e, service.getNetworkState().localPeer, seed);
                     DLC.mark("NetOpReq", e);
                     // Ratchet
-                    e.getDynamicRoutingSlip().nextRoute();
+                    e.setRoute(e.getDynamicRoutingSlip().nextRoute());
                     service.sendOut(e);
                 }
             }
