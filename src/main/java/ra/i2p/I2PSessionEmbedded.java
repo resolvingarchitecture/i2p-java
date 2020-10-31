@@ -376,8 +376,10 @@ class I2PSessionEmbedded extends I2PSessionBase implements I2PSessionMuxedListen
             if(DLC.markerPresent("NetOpRes", envelope)) {
                 LOG.info("NetOpRes received...");
                 List<NetworkPeer> recommendedPeers = (List<NetworkPeer>)DLC.getContent(envelope);
-                LOG.info(recommendedPeers.size()+" Known Peers Received.");
-                service.addToKnownPeers(recommendedPeers);
+                if(recommendedPeers!=null) {
+                    LOG.info(recommendedPeers.size() + " Known Peers Received.");
+                    service.addToKnownPeers(recommendedPeers);
+                }
                 LOG.info(service.getNumberKnownPeers()+" Total Peers Known");
             } else if(DLC.markerPresent("NetOpReq", envelope)) {
                 LOG.info("NetOpReq received...");
