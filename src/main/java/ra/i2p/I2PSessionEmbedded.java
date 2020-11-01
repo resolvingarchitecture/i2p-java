@@ -365,6 +365,7 @@ class I2PSessionEmbedded extends I2PSessionBase implements I2PSessionMuxedListen
             byte[] payload = d.getPayload();
             String strPayload = new String(payload);
             LOG.fine("Getting sender as I2P Destination...");
+            // TODO: change origination to senderPeer as Origination should be gleemed from payload's external route in the future when multiple networks are used in a single delivery
             NetworkPeer origination = new NetworkPeer(Network.I2P.name());
             Destination sender = d.getSender();
             String address = sender.toBase64();
@@ -374,18 +375,27 @@ class I2PSessionEmbedded extends I2PSessionBase implements I2PSessionMuxedListen
             Map<String, Object> pm = (Map<String, Object>) JSONParser.parse(strPayload);
             Envelope envelope = Envelope.documentFactory();
             envelope.fromMap(pm);
+            // Update local cache
+            if(service.getNumberKnownPeers() <= service.maxKnownPeers) {
+                service.addKnownPeer(origination);
+            }
+
             if(DLC.markerPresent("NetOpRes", envelope)) {
-                List<NetworkPeer> recommendedPeers = (List<NetworkPeer>)DLC.getContent(envelope);
-                if(recommendedPeers!=null) {
-                    LOG.info(recommendedPeers.size() + " Known Peers Received.");
-                    service.addToKnownPeers(recommendedPeers);
+                if(service.getNumberKnownPeers() <= service.maxKnownPeers) {
+                    List<NetworkPeer> recommendedPeers = (List<NetworkPeer>) DLC.getContent(envelope);
+                    if (recommendedPeers != null) {
+                        LOG.info(recommendedPeers.size() + " Known Peers Received.");
+                        service.addToKnownPeers(recommendedPeers);
+                    }
                 }
                 LOG.info("Received NetOpRes id: "+envelope.getId()+" from: "+fingerprint + " total peers known: "+service.getNumberKnownPeers());
             } else if(DLC.markerPresent("NetOpReq", envelope)) {
-                List<NetworkPeer> recommendedPeers = (List<NetworkPeer>)DLC.getContent(envelope);
-                if(recommendedPeers!=null) {
-                    LOG.info(recommendedPeers.size() + " Known Peers Received.");
-                    service.addToKnownPeers(recommendedPeers);
+                if(service.getNumberKnownPeers() <= service.maxKnownPeers) {
+                    List<NetworkPeer> recommendedPeers = (List<NetworkPeer>) DLC.getContent(envelope);
+                    if (recommendedPeers != null) {
+                        LOG.info(recommendedPeers.size() + " Known Peers Received.");
+                        service.addToKnownPeers(recommendedPeers);
+                    }
                 }
                 DLC.mark("NetOpRes", envelope);
                 DLC.addContent(service.getKnownPeers(), envelope);
@@ -394,12 +404,10 @@ class I2PSessionEmbedded extends I2PSessionBase implements I2PSessionMuxedListen
                 send(envelope);
                 LOG.info("Received NetOpReq id: "+envelope.getId()+" from: "+fingerprint+" total peers known: "+service.getNumberKnownPeers());
             } else {
+                LOG.info("Received Envelope id: "+envelope.getId()+" from: "+fingerprint);
                 if (!service.send(envelope)) {
                     LOG.warning("Unsuccessful sending of Envelope to bus.");
                 }
-                // Update local cache
-                service.addKnownPeer(origination);
-                LOG.info("Received Envelope id: "+envelope.getId()+" from: "+fingerprint);
             }
             LOG.fine("Content Received: \n\t"+strPayload);
         } catch (DataFormatException e) {
