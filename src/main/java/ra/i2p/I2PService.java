@@ -79,8 +79,6 @@ public final class I2PService extends NetworkService {
     private TaskRunner taskRunner;
     private Map<String, I2PSessionBase> sessions = new HashMap<>();
 
-    Integer maxKnownPeers = 500;
-
     public I2PService() {
         super(Network.I2P.name());
     }

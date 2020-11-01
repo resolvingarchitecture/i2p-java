@@ -376,26 +376,20 @@ class I2PSessionEmbedded extends I2PSessionBase implements I2PSessionMuxedListen
             Envelope envelope = Envelope.documentFactory();
             envelope.fromMap(pm);
             // Update local cache
-            if(service.getNumberKnownPeers() <= service.maxKnownPeers) {
-                service.addKnownPeer(origination);
-            }
+            service.addKnownPeer(origination);
 
             if(DLC.markerPresent("NetOpRes", envelope)) {
-                if(service.getNumberKnownPeers() <= service.maxKnownPeers) {
-                    List<NetworkPeer> recommendedPeers = (List<NetworkPeer>) DLC.getContent(envelope);
-                    if (recommendedPeers != null) {
-                        LOG.info(recommendedPeers.size() + " Known Peers Received.");
-                        service.addToKnownPeers(recommendedPeers);
-                    }
+                List<NetworkPeer> recommendedPeers = (List<NetworkPeer>) DLC.getContent(envelope);
+                if (recommendedPeers != null) {
+                    LOG.info(recommendedPeers.size() + " Known Peers Received.");
+                    service.addToKnownPeers(recommendedPeers);
                 }
                 LOG.info("Received NetOpRes id: "+envelope.getId()+" from: "+fingerprint + " total peers known: "+service.getNumberKnownPeers());
             } else if(DLC.markerPresent("NetOpReq", envelope)) {
-                if(service.getNumberKnownPeers() <= service.maxKnownPeers) {
-                    List<NetworkPeer> recommendedPeers = (List<NetworkPeer>) DLC.getContent(envelope);
-                    if (recommendedPeers != null) {
-                        LOG.info(recommendedPeers.size() + " Known Peers Received.");
-                        service.addToKnownPeers(recommendedPeers);
-                    }
+                List<NetworkPeer> recommendedPeers = (List<NetworkPeer>) DLC.getContent(envelope);
+                if (recommendedPeers != null) {
+                    LOG.info(recommendedPeers.size() + " Known Peers Received.");
+                    service.addToKnownPeers(recommendedPeers);
                 }
                 DLC.mark("NetOpRes", envelope);
                 DLC.addContent(service.getKnownPeers(), envelope);

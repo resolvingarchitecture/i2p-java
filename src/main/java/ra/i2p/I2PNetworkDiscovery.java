@@ -25,7 +25,7 @@ public class I2PNetworkDiscovery extends BaseTask {
     @Override
     public Boolean execute() {
         if(service.getNetworkState().networkStatus == NetworkStatus.CONNECTED
-                && service.getNumberKnownPeers() < service.maxKnownPeers) {
+                && service.getNumberKnownPeers() < service.getMaxKnownPeers()) {
             if(service.getNumberKnownPeers()==0) {
                 // Use Seeds
                 List<NetworkPeer> seedPeers = new ArrayList<>(seeds.values());
