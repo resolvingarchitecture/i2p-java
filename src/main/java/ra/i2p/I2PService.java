@@ -79,6 +79,8 @@ public final class I2PService extends NetworkService {
     private TaskRunner taskRunner;
     private Map<String, I2PSessionBase> sessions = new HashMap<>();
 
+    final Map<String,Long> inflightTimers = new HashMap<>();
+
     public I2PService() {
         super(Network.I2P.name());
     }

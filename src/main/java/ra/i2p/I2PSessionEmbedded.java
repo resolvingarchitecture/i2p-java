@@ -377,11 +377,13 @@ class I2PSessionEmbedded extends I2PSessionBase implements I2PSessionMuxedListen
                     LOG.info(recommendedPeers.size() + " Known Peers Received.");
                     service.addToKnownPeers(recommendedPeers);
                 }
-                Object objStart = DLC.getValue("start", envelope);
-                long diff =0L;
-                if(objStart!=null) {
-                    long start = Long.parseLong((String)objStart);
+                Long start = service.inflightTimers.get(envelope.getId());
+                long diff = 0L;
+                if(start!=null) {
                     diff = end-start;
+                    synchronized (service.inflightTimers) {
+                        service.inflightTimers.remove(envelope.getId());
+                    }
                 }
                 LOG.info("Received NetOpRes id: "+envelope.getId()+" from: "+fingerprint + (diff > 0L ? (" in " + diff + " ms roundtrip; ") : "" )+" total peers known: "+service.getNumberKnownPeers());
             } else if(DLC.markerPresent("NetOpReq", envelope)) {

@@ -31,7 +31,7 @@ public class I2PNetworkDiscovery extends BaseTask {
                 List<NetworkPeer> seedPeers = new ArrayList<>(seeds.values());
                 for(NetworkPeer seed : seedPeers) {
                     Envelope e = Envelope.documentFactory();
-                    DLC.addNVP("start", new Date().getTime(), e);
+                    service.inflightTimers.put(e.getId(), new Date().getTime());
                     DLC.addContent(service.getKnownPeers(), e);
                     DLC.addExternalRoute(I2PService.class, I2PService.OPERATION_SEND, e, service.getNetworkState().localPeer, seed);
                     DLC.mark("NetOpReq", e);
@@ -41,7 +41,7 @@ public class I2PNetworkDiscovery extends BaseTask {
             } else {
                 NetworkPeer toPeer = service.getRandomKnownPeer();
                 Envelope e = Envelope.documentFactory();
-                DLC.addNVP("start", new Date().getTime(), e);
+                service.inflightTimers.put(e.getId(), new Date().getTime());
                 DLC.addContent(service.getKnownPeers(), e);
                 DLC.addExternalRoute(I2PService.class, I2PService.OPERATION_SEND, e, service.getNetworkState().localPeer, toPeer);
                 DLC.mark("NetOpReq", e);
