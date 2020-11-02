@@ -385,7 +385,7 @@ class I2PSessionEmbedded extends I2PSessionBase implements I2PSessionMuxedListen
                         service.inflightTimers.remove(envelope.getId());
                     }
                 }
-                LOG.info("Received NetOpRes id: "+envelope.getId()+" from: "+fingerprint + (diff > 0L ? (" in " + diff + " ms roundtrip; ") : "" )+" total peers known: "+service.getNumberKnownPeers());
+                LOG.info("Received NetOpRes id: "+envelope.getId().substring(0,7)+"... from: "+fingerprint.substring(0,7) + (diff > 0L ? ("... in " + diff + " ms roundtrip; ") : "..." )+" total peers known: "+service.getNumberKnownPeers());
             } else if(DLC.markerPresent("NetOpReq", envelope)) {
                 List<NetworkPeer> recommendedPeers = (List<NetworkPeer>) DLC.getContent(envelope);
                 if (recommendedPeers != null) {
@@ -396,10 +396,10 @@ class I2PSessionEmbedded extends I2PSessionBase implements I2PSessionMuxedListen
                 DLC.addContent(service.getKnownPeers(), envelope);
                 DLC.addExternalRoute(I2PService.class, I2PService.OPERATION_SEND, envelope, service.getNetworkState().localPeer, origination);
                 envelope.ratchet();
-                LOG.info("Received NetOpReq id: "+envelope.getId()+" from: "+fingerprint+" total peers known: "+service.getNumberKnownPeers());
+                LOG.info("Received NetOpReq id: "+envelope.getId().substring(0,7)+"... from: "+fingerprint.substring(0,7)+"... total peers known: "+service.getNumberKnownPeers());
                 send(envelope);
             } else {
-                LOG.info("Received Envelope id: "+envelope.getId()+" from: "+fingerprint);
+                LOG.info("Received Envelope id: "+envelope.getId().substring(0,7)+"... from: "+fingerprint.substring(0,7)+"...");
                 if (!service.send(envelope)) {
                     LOG.warning("Unsuccessful sending of Envelope to bus.");
                 }
