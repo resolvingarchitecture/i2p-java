@@ -34,6 +34,9 @@ I2P Zero - zero dependency build of I2P router with minimal gui
 
 https://github.com/i2p-zero/i2p-zero
 
+* Ensure your firewall is opened to the random port assigned on startup for both tcp and udp.
+* Open port 123 on udp for time sync if on (default)
+
 ## Removal
 
 ### Raspian
