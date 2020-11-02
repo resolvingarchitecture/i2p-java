@@ -173,7 +173,10 @@ class I2PSessionEmbedded extends I2PSessionBase implements I2PSessionMuxedListen
 
             // Only for testing; remove for production
             String country = service.routerContext.commSystem().getCountry(localDestination.getHash());
-            LOG.info("Local I2P Peer in country: "+country);
+            if(country==null)
+                LOG.info("Local I2P Peer in country: unknown");
+            else
+                LOG.info("Local I2P Peer in country: "+country);
         }
         if(service.router.getConfigSetting("i2np.udp.port") != null) {
             service.getNetworkState().virtualPort = Integer.parseInt(service.router.getConfigSetting("i2np.udp.port"));
@@ -380,7 +383,7 @@ class I2PSessionEmbedded extends I2PSessionBase implements I2PSessionMuxedListen
                     long start = Long.parseLong((String)objStart);
                     diff = end-start;
                 }
-                LOG.info("Received NetOpRes id: "+envelope.getId()+" from: "+fingerprint + (diff > 0 ? (" in " + diff + " ms roundtrip; ") : "" )+" total peers known: "+service.getNumberKnownPeers());
+                LOG.info("Received NetOpRes id: "+envelope.getId()+" from: "+fingerprint + (diff > 0L ? (" in " + diff + " ms roundtrip; ") : "" )+" total peers known: "+service.getNumberKnownPeers());
             } else if(DLC.markerPresent("NetOpReq", envelope)) {
                 List<NetworkPeer> recommendedPeers = (List<NetworkPeer>) DLC.getContent(envelope);
                 if (recommendedPeers != null) {
