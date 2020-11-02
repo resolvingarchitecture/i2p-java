@@ -174,13 +174,6 @@ class I2PSessionEmbedded extends I2PSessionBase implements I2PSessionMuxedListen
             // Only for testing; remove for production
             String country = service.routerContext.commSystem().getCountry(localDestination.getHash());
             LOG.info("Local I2P Peer in country: "+country);
-
-            if(!fingerprint.equals("UnqFsMDlHiHsSThhJbZ4dygSQsL9ozXPqN1k3Ws0KRc=")) {
-                NetworkPeer directorySeed = new NetworkPeer(Network.I2P.name());
-                directorySeed.getDid().getPublicKey().setFingerprint("UnqFsMDlHiHsSThhJbZ4dygSQsL9ozXPqN1k3Ws0KRc=");
-                directorySeed.getDid().getPublicKey().setAddress("r1rLondH3kLxWPJqQCs6cgkUEze04ndo8zi4xReHoukVKsXpWnyDSMHWfK3zZYLx5pdqTKwQhY6RbPEUTE8smDK~bh7L3Swj0sJjHmEkc1idd4MWhBX6xNZ36jgaB1fK39GgyoawdSQ7nLDmGnoClkmwHaXn0IaTdsh0atjrxrHXWFxdYJJoElsUGy---LSgOAN4Q7QsWj-uTWkzl58nWJGBEkbLVUlnB0Snd69tWhw7pPKW7yBWEjAy7gaMCzPPwpGnnkrfzbC1ocuyk08YGI3s0S4iYIRz2I2E-rQnBKWp4bVcZA8lvsHu4GP6jlLT0IwzHqn5-mg9zgt13pkxsyHXQ93XUcqhw8HCDkXG17AS01wFPAp7G6Q~6qoR4aVec60C-5ohGLPZ4yIkUNeXb0wsOHR~4he79mMw5dKoS1tWdpMpzKNA~b5prEkxKIRXxN~VMjE4MUVSRn4uIxAccI11EKOJkYuTNerYvgzNcPOpGMzDMy0YkFMFA6BzprcqAAAA");
-                service.addSeedPeer(directorySeed);
-            }
         }
         if(service.router.getConfigSetting("i2np.udp.port") != null) {
             service.getNetworkState().virtualPort = Integer.parseInt(service.router.getConfigSetting("i2np.udp.port"));
