@@ -5,6 +5,7 @@ import ra.common.Envelope;
 import ra.common.network.Network;
 import ra.common.network.NetworkPeer;
 import ra.common.network.NetworkStatus;
+import ra.util.RandomUtil;
 import ra.util.tasks.BaseTask;
 import ra.util.tasks.TaskRunner;
 
@@ -28,17 +29,23 @@ public class I2PNetworkDiscovery extends BaseTask {
         if(service.getNetworkState().networkStatus == NetworkStatus.CONNECTED
                 && service.getNumberKnownPeers() < service.getMaxKnownPeers()) {
             if(service.getNumberKnownPeers()==0) {
-                // Use Seeds
                 List<NetworkPeer> seedPeers = new ArrayList<>(seeds.values());
                 for(NetworkPeer seed : seedPeers) {
                     Envelope e = Envelope.documentFactory();
                     DLC.addContent(service.getKnownPeers(), e);
                     DLC.addExternalRoute(I2PService.class, I2PService.OPERATION_SEND, e, service.getNetworkState().localPeer, seed);
                     DLC.mark("NetOpReq", e);
-                    // Ratchet
-                    e.setRoute(e.getDynamicRoutingSlip().nextRoute());
+                    e.ratchet();
                     service.sendOut(e);
                 }
+            } else {
+                NetworkPeer toPeer = service.getRandomKnownPeer();
+                Envelope e = Envelope.documentFactory();
+                DLC.addContent(service.getKnownPeers(), e);
+                DLC.addExternalRoute(I2PService.class, I2PService.OPERATION_SEND, e, service.getNetworkState().localPeer, toPeer);
+                DLC.mark("NetOpReq", e);
+                e.ratchet();
+                service.sendOut(e);
             }
         }
         return true;
