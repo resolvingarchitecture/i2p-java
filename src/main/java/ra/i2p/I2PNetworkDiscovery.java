@@ -39,13 +39,16 @@ public class I2PNetworkDiscovery extends BaseTask {
             if(service.getNumberKnownPeers()==0) {
                 List<NetworkPeer> seedPeers = new ArrayList<>(seeds.values());
                 for(NetworkPeer seed : seedPeers) {
-                    Envelope e = Envelope.documentFactory();
-                    service.inflightTimers.put(e.getId(), new Date().getTime());
-                    DLC.addContent(service.getKnownPeers(), e);
-                    DLC.addExternalRoute(I2PService.class, I2PService.OPERATION_SEND, e, service.getNetworkState().localPeer, seed);
-                    DLC.mark("NetOpReq", e);
-                    e.ratchet();
-                    service.sendOut(e);
+                    // Do not send it to yourself if you are the seed
+                    if(!service.getNetworkState().localPeer.getDid().getPublicKey().getFingerprint().equals(seed.getDid().getPublicKey().getFingerprint())) {
+                        Envelope e = Envelope.documentFactory();
+                        service.inflightTimers.put(e.getId(), new Date().getTime());
+                        DLC.addContent(service.getKnownPeers(), e);
+                        DLC.addExternalRoute(I2PService.class, I2PService.OPERATION_SEND, e, service.getNetworkState().localPeer, seed);
+                        DLC.mark("NetOpReq", e);
+                        e.ratchet();
+                        service.sendOut(e);
+                    }
                 }
             } else {
                 NetworkPeer toPeer = service.getRandomKnownPeer();
