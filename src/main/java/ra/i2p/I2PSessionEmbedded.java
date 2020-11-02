@@ -387,7 +387,6 @@ class I2PSessionEmbedded extends I2PSessionBase implements I2PSessionMuxedListen
                     LOG.info(recommendedPeers.size() + " Known Peers Received.");
                     service.addToKnownPeers(recommendedPeers);
                 }
-                DLC.addNVP("start", new Date().getTime(), envelope);
                 DLC.mark("NetOpRes", envelope);
                 DLC.addContent(service.getKnownPeers(), envelope);
                 DLC.addExternalRoute(I2PService.class, I2PService.OPERATION_SEND, envelope, service.getNetworkState().localPeer, origination);
