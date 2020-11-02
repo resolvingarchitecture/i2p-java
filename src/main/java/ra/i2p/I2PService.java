@@ -369,8 +369,6 @@ public final class I2PService extends NetworkService {
         // Set dependent services
 //        addDependentService(NotificationService.class);
 
-        Wait.aMs(500); // Give the infrastructure a bit of breathing room before saving seeds
-
         // TODO: Load multiple seeds from a seeds.json file
         NetworkPeer seedA = new NetworkPeer(Network.I2P.name());
         seedA.getDid().getPublicKey().setAddress("I7SBNbVvrKB3thzOW6g49Mh6GpGZW~SiCwP~SgavJjy7lOWau2G2e71hgM1t7ymTRPIm9qfjP6g1tuzoP6eN3KRnnfYniISkvgvu5MU27Bvnf2BnIpiDGCfvmgIltUefX3ZVa7GSFtnTJobTlxFa0JEjfMSupuhEOnsApobo~Ux8DfSuoFfD0Fx9IdeBvMi~4nJHK7bGAx~LiNwdYVTGVwIEW0lGlEi8sLpymb0VhCxl8yo79AUWH-gD4LUJwy8ZVvovp0C2-BnWAwuIVPSWNepHB7Z6a0v6TF70lVZoXmJICDKho72uejYVgptZ~ugSdZRrXS6OiraMq1G39eLSSkxKQGgxL4G3-L~Mm5AYYg49G48KN1XJdROOjQSCxp3cRD1tbsjCVvB4xkjbmv-TbHF9OmrDzqwlT6WWigxxPMv~EyHmGJmanz80aOf3cJOHAd7OjK2sDfVPoqFW1NCt4vq4Nbu4wzUQeakwbB~eZS7NkuINqlVc06ke34MXgjYEAAAA");
@@ -399,18 +397,22 @@ public final class I2PService extends NetworkService {
         routerContext.logManager().setDefaultLimit(Log.STR_INFO);
         routerContext.logManager().setFileSize(100000000); // 100 MB
 
+        Wait.aMs(500); // Give the router a bit of breathing room before launching tasks
+
         if(taskRunner==null) {
             taskRunner = new TaskRunner(2, 2);
-            taskRunner.setPeriodicity(2 * 1000L);
-            taskRunner.addTask(new CheckRouterStatus(this,taskRunner));
+            taskRunner.setPeriodicity(1000L); // Default check every second
+            CheckRouterStatus statusChecker = new CheckRouterStatus(this, taskRunner);
+            statusChecker.setPeriodicity(30 * 1000L); // Check status every 30 seconds
+            taskRunner.addTask(statusChecker);
             I2PNetworkDiscovery discovery = new I2PNetworkDiscovery(this, seedPeers, taskRunner);
-            discovery.setPeriodicity(90 * 1000L); // Set periodicity to I2P Network timeout of 90 seconds
+            discovery.setPeriodicity(120 * 1000L); // Set periodicity to 30 seconds longer than I2P network timeout (90 seconds).
             taskRunner.addTask(discovery);
         }
 
         taskRunnerThread = new Thread(taskRunner);
         taskRunnerThread.setDaemon(true);
-        taskRunnerThread.setName("I2PSensor-TaskRunnerThread");
+        taskRunnerThread.setName("I2PService-TaskRunnerThread");
         taskRunnerThread.start();
 
         return true;

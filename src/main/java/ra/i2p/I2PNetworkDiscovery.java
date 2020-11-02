@@ -11,8 +11,11 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
+import java.util.logging.Logger;
 
 public class I2PNetworkDiscovery extends BaseTask {
+
+    private static final Logger LOG = Logger.getLogger(I2PNetworkDiscovery.class.getName());
 
     private I2PService service;
     private Map<String,NetworkPeer> seeds;
@@ -27,6 +30,12 @@ public class I2PNetworkDiscovery extends BaseTask {
     public Boolean execute() {
         if(service.getNetworkState().networkStatus == NetworkStatus.CONNECTED
                 && service.getNumberKnownPeers() < service.getMaxKnownPeers()) {
+            if(service.inflightTimers.size()>0) {
+                LOG.warning(service.inflightTimers.size()+" in-flight timer(s) timed out.");
+                synchronized (service.inflightTimers) {
+                    service.inflightTimers.clear();
+                }
+            }
             if(service.getNumberKnownPeers()==0) {
                 List<NetworkPeer> seedPeers = new ArrayList<>(seeds.values());
                 for(NetworkPeer seed : seedPeers) {
