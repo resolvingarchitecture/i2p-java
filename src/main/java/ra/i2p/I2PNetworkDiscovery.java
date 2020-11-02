@@ -2,10 +2,8 @@ package ra.i2p;
 
 import ra.common.DLC;
 import ra.common.Envelope;
-import ra.common.network.Network;
 import ra.common.network.NetworkPeer;
 import ra.common.network.NetworkStatus;
-import ra.util.RandomUtil;
 import ra.util.tasks.BaseTask;
 import ra.util.tasks.TaskRunner;
 

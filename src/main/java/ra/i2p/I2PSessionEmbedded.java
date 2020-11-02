@@ -25,10 +25,7 @@ import ra.common.route.SimpleExternalRoute;
 import ra.util.JSONParser;
 
 import java.io.*;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
-import java.util.Properties;
+import java.util.*;
 import java.util.logging.Logger;
 
 class I2PSessionEmbedded extends I2PSessionBase implements I2PSessionMuxedListener {
@@ -343,6 +340,7 @@ class I2PSessionEmbedded extends I2PSessionBase implements I2PSessionMuxedListen
     @Override
     public void messageAvailable(I2PSession session, int msgId, long size) {
         LOG.fine("Message received by I2P Service...");
+        long end = new Date().getTime();
         byte[] msg;
         try {
             msg = session.receiveMessage(msgId);
@@ -377,20 +375,26 @@ class I2PSessionEmbedded extends I2PSessionBase implements I2PSessionMuxedListen
             envelope.fromMap(pm);
             // Update local cache
             service.addKnownPeer(origination);
-
             if(DLC.markerPresent("NetOpRes", envelope)) {
                 List<NetworkPeer> recommendedPeers = (List<NetworkPeer>) DLC.getContent(envelope);
                 if (recommendedPeers != null) {
                     LOG.info(recommendedPeers.size() + " Known Peers Received.");
                     service.addToKnownPeers(recommendedPeers);
                 }
-                LOG.info("Received NetOpRes id: "+envelope.getId()+" from: "+fingerprint + " total peers known: "+service.getNumberKnownPeers());
+                Object objStart = DLC.getValue("start", envelope);
+                long diff =0L;
+                if(objStart!=null) {
+                    long start = Long.parseLong((String)objStart);
+                    diff = end-start;
+                }
+                LOG.info("Received NetOpRes id: "+envelope.getId()+" from: "+fingerprint + (diff > 0 ? (" in " + diff + " ms roundtrip; ") : "" )+" total peers known: "+service.getNumberKnownPeers());
             } else if(DLC.markerPresent("NetOpReq", envelope)) {
                 List<NetworkPeer> recommendedPeers = (List<NetworkPeer>) DLC.getContent(envelope);
                 if (recommendedPeers != null) {
                     LOG.info(recommendedPeers.size() + " Known Peers Received.");
                     service.addToKnownPeers(recommendedPeers);
                 }
+                DLC.addNVP("start", new Date().getTime(), envelope);
                 DLC.mark("NetOpRes", envelope);
                 DLC.addContent(service.getKnownPeers(), envelope);
                 DLC.addExternalRoute(I2PService.class, I2PService.OPERATION_SEND, envelope, service.getNetworkState().localPeer, origination);
