@@ -277,7 +277,7 @@ class I2PSessionEmbedded extends I2PSessionBase implements I2PSessionMuxedListen
             return false;
         }
 
-        LOG.info("Sending Envelope id: "+envelope.getId()+" to: "+er.getDestination().getDid().getPublicKey().getFingerprint());
+        LOG.info("Sending Envelope id: "+envelope.getId().substring(0,7)+".. to: "+er.getDestination().getDid().getPublicKey().getFingerprint().substring(0,7)+"...");
         String content = envelope.toJSON();
         LOG.fine("Content to send: \n\t" + content);
         if (content.length() > 31500) {
