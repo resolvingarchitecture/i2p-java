@@ -176,7 +176,7 @@ class I2PSessionEmbedded extends I2PSessionBase implements I2PSessionMuxedListen
 
             // Only for testing; remove for production
             String country = service.routerContext.commSystem().getCountry(localDestination.getHash());
-            LOG.info("Local I2P Peer in: "+country);
+            LOG.info("Local I2P Peer in country: "+country);
 
             if(!fingerprint.equals("UnqFsMDlHiHsSThhJbZ4dygSQsL9ozXPqN1k3Ws0KRc=")) {
                 NetworkPeer directorySeed = new NetworkPeer(Network.I2P.name());
