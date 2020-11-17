@@ -1,10 +1,8 @@
 package ra.i2p;
 
 import net.i2p.client.I2PClient;
-import net.i2p.client.I2PSession;
 import net.i2p.data.DataHelper;
 import net.i2p.data.Destination;
-import net.i2p.data.Hash;
 import net.i2p.router.CommSystemFacade;
 import net.i2p.router.Router;
 import net.i2p.router.RouterContext;
@@ -20,8 +18,7 @@ import ra.common.messaging.MessageProducer;
 import ra.common.network.*;
 import ra.common.route.Route;
 import ra.common.service.ServiceStatus;
-import ra.common.service.ServiceStatusListener;
-import ra.notification.NotificationService;
+import ra.common.service.ServiceStatusObserver;
 import ra.util.Config;
 import ra.util.SystemSettings;
 import ra.util.Wait;
@@ -85,8 +82,8 @@ public final class I2PService extends NetworkService {
         super(Network.I2P.name());
     }
 
-    public I2PService(MessageProducer messageProducer, ServiceStatusListener listener) {
-        super(Network.I2P.name(), messageProducer, listener);
+    public I2PService(MessageProducer messageProducer, ServiceStatusObserver observer) {
+        super(Network.I2P.name(), messageProducer, observer);
     }
 
     @Override
