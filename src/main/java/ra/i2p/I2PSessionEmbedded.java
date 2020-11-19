@@ -371,7 +371,7 @@ class I2PSessionEmbedded extends I2PSessionBase implements I2PSessionMuxedListen
             envelope.fromMap(pm);
             // Update local cache
             service.addKnownPeer(origination);
-            if(DLC.markerPresent("NetOpRes", envelope)) {
+            if(envelope.markerPresent("NetOpRes")) {
                 List<NetworkPeer> recommendedPeers = (List<NetworkPeer>) DLC.getContent(envelope);
                 if (recommendedPeers != null) {
                     LOG.info(recommendedPeers.size() + " Known Peers Received.");
@@ -386,7 +386,7 @@ class I2PSessionEmbedded extends I2PSessionBase implements I2PSessionMuxedListen
                     }
                 }
                 LOG.info("Received NetOpRes id: "+envelope.getId().substring(0,7)+"... from: "+fingerprint.substring(0,7) + (diff > 0L ? ("... in " + diff + " ms roundtrip; ") : "..." )+" total peers known: "+service.getNumberKnownPeers());
-            } else if(DLC.markerPresent("NetOpReq", envelope)) {
+            } else if(envelope.markerPresent("NetOpReq")) {
                 List<NetworkPeer> recommendedPeers = (List<NetworkPeer>) DLC.getContent(envelope);
                 if (recommendedPeers != null) {
                     LOG.info(recommendedPeers.size() + " Known Peers Received.");
