@@ -370,12 +370,12 @@ class I2PSessionEmbedded extends I2PSessionBase implements I2PSessionMuxedListen
             Envelope envelope = Envelope.documentFactory();
             envelope.fromMap(pm);
             // Update local cache
-            service.addKnownPeer(origination);
+            service.addPeer(origination);
             if(envelope.markerPresent("NetOpRes")) {
                 List<NetworkPeer> recommendedPeers = (List<NetworkPeer>) DLC.getContent(envelope);
                 if (recommendedPeers != null) {
                     LOG.info(recommendedPeers.size() + " Known Peers Received.");
-                    service.addToKnownPeers(recommendedPeers);
+                    service.addPeers(recommendedPeers);
                 }
                 Long start = service.inflightTimers.get(envelope.getId());
                 long diff = 0L;
@@ -385,18 +385,18 @@ class I2PSessionEmbedded extends I2PSessionBase implements I2PSessionMuxedListen
                         service.inflightTimers.remove(envelope.getId());
                     }
                 }
-                LOG.info("Received NetOpRes id: "+envelope.getId().substring(0,7)+"... from: "+fingerprint.substring(0,7) + (diff > 0L ? ("... in " + diff + " ms roundtrip; ") : "..." )+" total peers known: "+service.getNumberKnownPeers());
+                LOG.info("Received NetOpRes id: "+envelope.getId().substring(0,7)+"... from: "+fingerprint.substring(0,7) + (diff > 0L ? ("... in " + diff + " ms roundtrip; ") : "..." )+" total peers known: "+service.getNumberPeers());
             } else if(envelope.markerPresent("NetOpReq")) {
                 List<NetworkPeer> recommendedPeers = (List<NetworkPeer>) DLC.getContent(envelope);
                 if (recommendedPeers != null) {
                     LOG.info(recommendedPeers.size() + " Known Peers Received.");
-                    service.addToKnownPeers(recommendedPeers);
+                    service.addPeers(recommendedPeers);
                 }
                 DLC.mark("NetOpRes", envelope);
-                DLC.addContent(service.getKnownPeers(), envelope);
+                DLC.addContent(service.getPeers(), envelope);
                 DLC.addExternalRoute(I2PService.class, I2PService.OPERATION_SEND, envelope, service.getNetworkState().localPeer, origination);
                 envelope.ratchet();
-                LOG.info("Received NetOpReq id: "+envelope.getId().substring(0,7)+"... from: "+fingerprint.substring(0,7)+"... total peers known: "+service.getNumberKnownPeers());
+                LOG.info("Received NetOpReq id: "+envelope.getId().substring(0,7)+"... from: "+fingerprint.substring(0,7)+"... total peers known: "+service.getNumberPeers());
                 send(envelope);
             } else {
                 LOG.info("Received Envelope id: "+envelope.getId().substring(0,7)+"... from: "+fingerprint.substring(0,7)+"...");
