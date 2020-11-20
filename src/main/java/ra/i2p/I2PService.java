@@ -234,7 +234,8 @@ public final class I2PService extends NetworkService {
         updateStatus(ServiceStatus.INITIALIZING);
         LOG.info("Loading I2P properties...");
         try {
-            config = Config.loadFromClasspath("i2p-client.config", p, false);
+            // Load environment variables first
+            config = Config.loadAll(p, "i2p-client.config");
         } catch (Exception e) {
             LOG.severe(e.getLocalizedMessage());
             return false;
@@ -365,12 +366,19 @@ public final class I2PService extends NetworkService {
 
         // Set dependent services
 //        addDependentService(NotificationService.class);
-
-        // TODO: Load multiple seeds from a seeds.json file
-        NetworkPeer seedA = new NetworkPeer(Network.I2P.name());
-        seedA.getDid().getPublicKey().setAddress("I7SBNbVvrKB3thzOW6g49Mh6GpGZW~SiCwP~SgavJjy7lOWau2G2e71hgM1t7ymTRPIm9qfjP6g1tuzoP6eN3KRnnfYniISkvgvu5MU27Bvnf2BnIpiDGCfvmgIltUefX3ZVa7GSFtnTJobTlxFa0JEjfMSupuhEOnsApobo~Ux8DfSuoFfD0Fx9IdeBvMi~4nJHK7bGAx~LiNwdYVTGVwIEW0lGlEi8sLpymb0VhCxl8yo79AUWH-gD4LUJwy8ZVvovp0C2-BnWAwuIVPSWNepHB7Z6a0v6TF70lVZoXmJICDKho72uejYVgptZ~ugSdZRrXS6OiraMq1G39eLSSkxKQGgxL4G3-L~Mm5AYYg49G48KN1XJdROOjQSCxp3cRD1tbsjCVvB4xkjbmv-TbHF9OmrDzqwlT6WWigxxPMv~EyHmGJmanz80aOf3cJOHAd7OjK2sDfVPoqFW1NCt4vq4Nbu4wzUQeakwbB~eZS7NkuINqlVc06ke34MXgjYEAAAA");
-        seedA.getDid().getPublicKey().setFingerprint("WLlzrHpbI2ABJShBCFJF5f1nh1CI6U2iT6~HS2Al~~U=");
-        seedPeers.put(seedA.getDid().getPublicKey().getFingerprint(), seedA);
+        if(config.get("ra.i2p.seeds")!=null) {
+            String seedsList = config.getProperty("ra.i2p.seeds");
+            String[] seeds = seedsList.split(";");
+            for(String seed : seeds) {
+                String[] parts = seed.split(":");
+                String fingerprint = parts[0];
+                String address = parts[1];
+                NetworkPeer np = new NetworkPeer(Network.I2P.name());
+                np.getDid().getPublicKey().setFingerprint(fingerprint);
+                np.getDid().getPublicKey().setAddress(address);
+                seedPeers.put(fingerprint, np);
+            }
+        }
 
         updateStatus(ServiceStatus.STARTING);
         // Start I2P Router
@@ -847,7 +855,7 @@ public final class I2PService extends NetworkService {
             }
         };
         I2PService service = new I2PService(messageProducer, null);
-        service.start(null);
+        service.start(Config.loadFromMainArgs(args));
         while(true) {
             Wait.aSec(1);
         }
