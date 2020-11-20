@@ -410,7 +410,7 @@ public final class I2PService extends NetworkService {
             CheckRouterStatus statusChecker = new CheckRouterStatus(this, taskRunner);
             statusChecker.setPeriodicity(30 * 1000L); // Check status every 30 seconds
             taskRunner.addTask(statusChecker);
-            I2PNetworkDiscovery discovery = new I2PNetworkDiscovery(this, peers, taskRunner);
+            I2PNetworkDiscovery discovery = new I2PNetworkDiscovery(this, taskRunner);
             discovery.setPeriodicity(120 * 1000L); // Set periodicity to 30 seconds longer than I2P network timeout (90 seconds).
             taskRunner.addTask(discovery);
         }
