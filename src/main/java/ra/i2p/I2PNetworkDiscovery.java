@@ -7,10 +7,7 @@ import ra.common.network.NetworkStatus;
 import ra.util.tasks.BaseTask;
 import ra.util.tasks.TaskRunner;
 
-import java.util.ArrayList;
 import java.util.Date;
-import java.util.List;
-import java.util.Map;
 import java.util.logging.Logger;
 
 public class I2PNetworkDiscovery extends BaseTask {
