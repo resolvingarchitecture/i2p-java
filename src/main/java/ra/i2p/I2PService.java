@@ -79,11 +79,11 @@ public final class I2PService extends NetworkService {
     final Map<String,Long> inflightTimers = new HashMap<>();
 
     public I2PService() {
-        super(Network.I2P.name());
+        super(Network.I2P);
     }
 
     public I2PService(MessageProducer messageProducer, ServiceStatusObserver observer) {
-        super(Network.I2P.name(), messageProducer, observer);
+        super(Network.I2P, messageProducer, observer);
     }
 
     @Override
@@ -373,7 +373,7 @@ public final class I2PService extends NetworkService {
                 String[] parts = seed.split(":");
                 String fingerprint = parts[0];
                 String address = parts[1];
-                NetworkPeer np = new NetworkPeer(Network.I2P.name());
+                NetworkPeer np = new NetworkPeer(Network.I2P);
                 np.getDid().getPublicKey().setFingerprint(fingerprint);
                 np.getDid().getPublicKey().setAddress(address);
                 peers.put(fingerprint, np);
@@ -461,6 +461,9 @@ public final class I2PService extends NetworkService {
             int currentWait = 0;
             while(!routerContext.router().isAlive()) {
                 Wait.aSec(10);
+
+
+
                 currentWait+=10;
                 if(currentWait > maxWaitSec) {
                     LOG.warning("Restart failed.");
@@ -852,6 +855,12 @@ public final class I2PService extends NetworkService {
             public boolean send(Envelope envelope, Client client) {
                 LOG.info(envelope.toJSON());
                 return true;
+            }
+
+            @Override
+            public boolean deadLetter(Envelope envelope) {
+                LOG.warning("Dead letter: \n\t"+envelope.toJSON());
+                return false;
             }
         };
         I2PService service = new I2PService(messageProducer, null);

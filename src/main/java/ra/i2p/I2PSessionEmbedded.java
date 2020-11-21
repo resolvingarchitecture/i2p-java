@@ -16,12 +16,11 @@ import net.i2p.data.DataFormatException;
 import net.i2p.data.Destination;
 import net.i2p.util.SecureFile;
 import net.i2p.util.SecureFileOutputStream;
-import ra.common.DLC;
 import ra.common.Envelope;
 import ra.common.identity.DID;
 import ra.common.network.*;
 import ra.common.route.ExternalRoute;
-import ra.common.route.SimpleExternalRoute;
+import ra.common.route.Route;
 import ra.util.JSONParser;
 
 import java.io.*;
@@ -158,7 +157,7 @@ class I2PSessionEmbedded extends I2PSessionBase implements I2PSessionMuxedListen
             String fingerprint = localDestination.calculateHash().toBase64();
             String algorithm = localDestination.getPublicKey().getType().getAlgorithmName();
             // Ensure network is correct
-            localI2PPeer.setNetwork(I2PService.class.getName());
+            localI2PPeer.setNetwork(Network.I2P);
             // Add destination to PK and update DID info
             localI2PPeer.getDid().setStatus(DID.Status.ACTIVE);
             localI2PPeer.getDid().setDescription("DID for I2PSensorSession");
@@ -358,21 +357,28 @@ class I2PSessionEmbedded extends I2PSessionBase implements I2PSessionMuxedListen
             LOG.fine("I2P Datagram loaded.");
             byte[] payload = d.getPayload();
             String strPayload = new String(payload);
+            Map<String, Object> pm = (Map<String, Object>) JSONParser.parse(strPayload);
+            Envelope envelope = Envelope.documentFactory();
+            envelope.fromMap(pm);
             LOG.fine("Getting sender as I2P Destination...");
-            // TODO: change origination to senderPeer as Origination should be gleemed from payload's external route in the future when multiple networks are used in a single delivery
-            NetworkPeer origination = new NetworkPeer(Network.I2P.name());
+            Route r = envelope.getRoute();
+            if(!(r instanceof ExternalRoute)) {
+                // Received external message without an External Route. Ignoring.
+                return;
+            }
+            ExternalRoute er = (ExternalRoute)r;
+            NetworkPeer origination = er.getOrigination();
             Destination sender = d.getSender();
+            // Ensure origination provided correct address and fingerprint
             String address = sender.toBase64();
             origination.getDid().getPublicKey().setAddress(address);
             String fingerprint = sender.getHash().toBase64();
             origination.getDid().getPublicKey().setFingerprint(fingerprint);
-            Map<String, Object> pm = (Map<String, Object>) JSONParser.parse(strPayload);
-            Envelope envelope = Envelope.documentFactory();
-            envelope.fromMap(pm);
+
             // Update local cache
             service.addPeer(origination);
             if(envelope.markerPresent("NetOpRes")) {
-                List<NetworkPeer> recommendedPeers = (List<NetworkPeer>) DLC.getContent(envelope);
+                List<NetworkPeer> recommendedPeers = (List<NetworkPeer>) envelope.getContent();
                 if (recommendedPeers != null) {
                     LOG.info(recommendedPeers.size() + " Known Peers Received.");
                     service.addPeers(recommendedPeers);
@@ -387,14 +393,14 @@ class I2PSessionEmbedded extends I2PSessionBase implements I2PSessionMuxedListen
                 }
                 LOG.info("Received NetOpRes id: "+envelope.getId().substring(0,7)+"... from: "+fingerprint.substring(0,7) + (diff > 0L ? ("... in " + diff + " ms roundtrip; ") : "..." )+" total peers known: "+service.getNumberPeers());
             } else if(envelope.markerPresent("NetOpReq")) {
-                List<NetworkPeer> recommendedPeers = (List<NetworkPeer>) DLC.getContent(envelope);
+                List<NetworkPeer> recommendedPeers = (List<NetworkPeer>) envelope.getContent();
                 if (recommendedPeers != null) {
                     LOG.info(recommendedPeers.size() + " Known Peers Received.");
                     service.addPeers(recommendedPeers);
                 }
-                DLC.mark("NetOpRes", envelope);
-                DLC.addContent(service.getPeers(), envelope);
-                DLC.addExternalRoute(I2PService.class, I2PService.OPERATION_SEND, envelope, service.getNetworkState().localPeer, origination);
+                envelope.mark("NetOpRes");
+                envelope.addContent(service.getPeers());
+                envelope.addExternalRoute(I2PService.class, I2PService.OPERATION_SEND, service.getNetworkState().localPeer, origination);
                 envelope.ratchet();
                 LOG.info("Received NetOpReq id: "+envelope.getId().substring(0,7)+"... from: "+fingerprint.substring(0,7)+"... total peers known: "+service.getNumberPeers());
                 send(envelope);
