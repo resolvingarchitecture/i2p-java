@@ -420,6 +420,8 @@ public final class I2PService extends NetworkService {
         taskRunnerThread.setName("I2PService-TaskRunnerThread");
         taskRunnerThread.start();
 
+        updateStatus(ServiceStatus.RUNNING);
+
         return true;
     }
 
