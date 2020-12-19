@@ -14,16 +14,23 @@ public class MockProducerService implements MessageProducer {
     public String contentValue = "TestSat";
 
     @Override
-    public boolean send(Envelope envelope) {
-        LOG.info(envelope.toJSON());
-        DLC.addContent(contentValue, envelope);
+    public boolean send(Envelope e) {
+        LOG.info(e.toJSON());
+        e.addContent(contentValue);
         return true;
     }
 
     @Override
-    public boolean send(Envelope envelope, Client client) {
-        LOG.info(envelope.toJSON());
-        DLC.addContent(contentValue, envelope);
+    public boolean send(Envelope e, Client client) {
+        LOG.info(e.toJSON());
+        e.addContent(contentValue);
+        return true;
+    }
+
+    @Override
+    public boolean deadLetter(Envelope e) {
+        LOG.info(e.toJSON());
+        e.addContent(contentValue);
         return true;
     }
 }
