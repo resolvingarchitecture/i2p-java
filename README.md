@@ -11,7 +11,7 @@ to be copied to resources/certificates keeping reseed and ssl as directories:
     - /installer/resources/certificates/ssl
 
 ## Roadmap
-* 1.0.0: Basic P2P communications using embedded I2P router and ElGamal-2048 / DSA-1024
+* 0.9.x: Basic P2P communications using embedded I2P router and ElGamal-2048 / DSA-1024
 * TBD
     * Verify ECDH-256 / ECDSA-256 works
     * Verify ECDH-521 / ECDSA-521 works
