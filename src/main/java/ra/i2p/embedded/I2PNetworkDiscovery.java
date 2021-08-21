@@ -1,4 +1,4 @@
-package ra.i2p;
+package ra.i2p.embedded;
 
 import ra.common.DLC;
 import ra.common.Envelope;

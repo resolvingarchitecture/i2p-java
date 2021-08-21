@@ -1,4 +1,4 @@
-package ra.i2p;
+package ra.i2p.embedded;
 
 import net.i2p.router.Router;
 import net.i2p.router.RouterContext;

@@ -3,6 +3,7 @@ package ra.i2p;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import ra.common.network.NetworkPeer;
+import ra.i2p.embedded.I2PEmbeddedService;
 
 import java.util.Properties;
 import java.util.logging.Logger;

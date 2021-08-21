@@ -1,4 +1,4 @@
-package ra.i2p;
+package ra.i2p.embedded;
 
 import net.i2p.client.I2PClient;
 import net.i2p.data.DataHelper;
