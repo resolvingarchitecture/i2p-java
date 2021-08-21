@@ -74,7 +74,7 @@ public final class I2PService extends NetworkService {
     private boolean embedded = true;
     private boolean isTest = false;
     private TaskRunner taskRunner;
-    private Map<String, I2PSessionBase> sessions = new HashMap<>();
+    private Map<String, I2PSession> sessions = new HashMap<>();
 
     final Map<String,Long> inflightTimers = new HashMap<>();
 
@@ -159,12 +159,12 @@ public final class I2PService extends NetworkService {
         }
     }
 
-    private I2PSessionBase establishSession(String address, Boolean autoConnect) {
+    private I2PSession establishSession(String address, Boolean autoConnect) {
         if(address==null) {
             address = "default";
         }
         if(sessions.get(address)==null) {
-            I2PSessionBase session = embedded ? new I2PSessionEmbedded(this) : new I2PSessionLocal(this);
+            I2PSession session = new I2PSession(this);
             session.init(config);
             session.open(null);
             if (autoConnect) {
@@ -649,7 +649,7 @@ public final class I2PService extends NetworkService {
             LOG.warning("Network Peer with address is required to determine if peer is unreachable.");
             return false;
         }
-        I2PSessionBase session = establishSession("default", true);
+        I2PSession session = establishSession("default", true);
         Destination dest = session.lookupDest(networkPeer.getDid().getPublicKey().getAddress());
         return routerContext.commSystem().wasUnreachable(dest.getHash());
     }
@@ -663,7 +663,7 @@ public final class I2PService extends NetworkService {
             LOG.warning("Network Peer with address is required to determine if peer is in strict country.");
             return false;
         }
-        I2PSessionBase session = establishSession("default", true);
+        I2PSession session = establishSession("default", true);
         Destination dest = session.lookupDest(networkPeer.getDid().getPublicKey().getAddress());
         return routerContext.commSystem().isInStrictCountry(dest.getHash());
     }
@@ -673,7 +673,7 @@ public final class I2PService extends NetworkService {
             LOG.warning("Network Peer with address is required to determine if peer is backlogged.");
             return false;
         }
-        I2PSessionBase session = establishSession("default", true);
+        I2PSession session = establishSession("default", true);
         Destination dest = session.lookupDest(networkPeer.getDid().getPublicKey().getAddress());
         return routerContext.commSystem().isBacklogged(dest.getHash());
     }
@@ -683,7 +683,7 @@ public final class I2PService extends NetworkService {
             LOG.warning("Network Peer with address is required to determine if peer is established.");
             return false;
         }
-        I2PSessionBase session = establishSession("default", true);
+        I2PSession session = establishSession("default", true);
         Destination dest = session.lookupDest(networkPeer.getDid().getPublicKey().getAddress());
         return routerContext.commSystem().isEstablished(dest.getHash());
     }
@@ -693,7 +693,7 @@ public final class I2PService extends NetworkService {
             LOG.warning("Network Peer with address is required to determine country of peer.");
             return "NoPeer";
         }
-        I2PSessionBase session = establishSession("default", true);
+        I2PSession session = establishSession("default", true);
         Destination dest = session.lookupDest(networkPeer.getDid().getPublicKey().getAddress());
         return routerContext.commSystem().getCountry(dest.getHash());
     }

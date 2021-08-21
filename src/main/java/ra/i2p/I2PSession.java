@@ -2,7 +2,6 @@ package ra.i2p;
 
 import net.i2p.I2PException;
 import net.i2p.client.I2PClientFactory;
-import net.i2p.client.I2PSession;
 import net.i2p.client.I2PSessionException;
 import net.i2p.client.I2PSessionMuxedListener;
 import net.i2p.client.datagram.I2PDatagramDissector;
@@ -27,9 +26,9 @@ import java.io.*;
 import java.util.*;
 import java.util.logging.Logger;
 
-class I2PSessionEmbedded extends I2PSessionBase implements I2PSessionMuxedListener {
+class I2PSession extends BaseClientSession implements I2PSessionMuxedListener {
 
-    private static final Logger LOG = Logger.getLogger(I2PSessionEmbedded.class.getName());
+    private static final Logger LOG = Logger.getLogger(I2PSession.class.getName());
 
     // I2CP parameters allowed in the config file
     // Undefined parameters use the I2CP defaults
@@ -49,12 +48,27 @@ class I2PSessionEmbedded extends I2PSessionBase implements I2PSessionMuxedListen
     private I2PSocketManager socketManager;
     private boolean isTest = false;
 
-    public I2PSessionEmbedded(I2PService service) {
-        super(service);
+    protected I2PService service;
+    protected net.i2p.client.I2PSession i2pSession;
+    protected boolean connected = false;
+    protected String address;
+
+    public I2PSession(I2PService service) {
+        this.service = service;
     }
 
     public String getAddress() {
         return address;
+    }
+
+    public Destination lookupDest(String address) {
+        Destination destination = null;
+        try {
+            destination = i2pSession.lookupDest(address);
+        } catch (I2PSessionException e) {
+            e.printStackTrace();
+        }
+        return destination;
     }
 
     /**
@@ -216,7 +230,7 @@ class I2PSessionEmbedded extends I2PSessionBase implements I2PSessionMuxedListen
         long durationMs = end - start;
         LOG.info("I2P Session connected. Took "+(durationMs/1000)+" seconds.");
 
-        i2pSession.addMuxedSessionListener(this, I2PSession.PROTO_ANY, I2PSession.PORT_ANY);
+        i2pSession.addMuxedSessionListener(this, net.i2p.client.I2PSession.PROTO_ANY, net.i2p.client.I2PSession.PORT_ANY);
 
         return true;
     }
@@ -293,7 +307,7 @@ class I2PSessionEmbedded extends I2PSessionBase implements I2PSessionMuxedListen
             }
             I2PDatagramMaker m = new I2PDatagramMaker(i2pSession);
             byte[] payload = m.makeI2PDatagram(content.getBytes());
-            if(i2pSession.sendMessage(destination, payload, I2PSession.PROTO_UNSPECIFIED, I2PSession.PORT_ANY, I2PSession.PORT_ANY)) {
+            if(i2pSession.sendMessage(destination, payload, net.i2p.client.I2PSession.PROTO_UNSPECIFIED, net.i2p.client.I2PSession.PORT_ANY, net.i2p.client.I2PSession.PORT_ANY)) {
                 LOG.fine("I2P Message sent.");
                 return true;
             } else {
@@ -333,7 +347,7 @@ class I2PSessionEmbedded extends I2PSessionBase implements I2PSessionMuxedListen
      * @param size size of the message - why it's a long and not an int is a mystery
      */
     @Override
-    public void messageAvailable(I2PSession session, int msgId, long size) {
+    public void messageAvailable(net.i2p.client.I2PSession session, int msgId, long size) {
         LOG.fine("Message received by I2P Service...");
         long end = new Date().getTime();
         byte[] msg;
@@ -443,7 +457,7 @@ class I2PSessionEmbedded extends I2PSessionBase implements I2PSessionMuxedListen
      * @param toPort 1-65535 or 0 for unspecified
      */
     @Override
-    public void messageAvailable(I2PSession session, int msgId, long size, int proto, int fromPort, int toPort) {
+    public void messageAvailable(net.i2p.client.I2PSession session, int msgId, long size, int proto, int fromPort, int toPort) {
 //        if (proto == I2PSession.PROTO_DATAGRAM || proto == I2PSession.PROTO_STREAMING)
         messageAvailable(session, msgId, size);
 //        else
@@ -461,7 +475,7 @@ class I2PSessionEmbedded extends I2PSessionBase implements I2PSessionMuxedListen
      * @param severity how bad the abuse is
      */
     @Override
-    public void reportAbuse(I2PSession i2PSession, int severity) {
+    public void reportAbuse(net.i2p.client.I2PSession i2PSession, int severity) {
         LOG.warning("I2P Session reporting abuse. Severity="+severity);
         service.reportRouterStatus();
     }
@@ -473,7 +487,7 @@ class I2PSessionEmbedded extends I2PSessionBase implements I2PSessionMuxedListen
      * @param session session to report disconnect to
      */
     @Override
-    public void disconnected(I2PSession session) {
+    public void disconnected(net.i2p.client.I2PSession session) {
         LOG.warning("I2P Session reporting disconnection.");
         service.reportRouterStatus();
     }
@@ -487,7 +501,7 @@ class I2PSessionEmbedded extends I2PSessionBase implements I2PSessionMuxedListen
      * @param throwable throwable thrown during error
      */
     @Override
-    public void errorOccurred(I2PSession session, String message, Throwable throwable) {
+    public void errorOccurred(net.i2p.client.I2PSession session, String message, Throwable throwable) {
         LOG.severe("Router says: "+message+": "+throwable.getLocalizedMessage());
         service.reportRouterStatus();
     }

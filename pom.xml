@@ -4,14 +4,14 @@
 	<modelVersion>4.0.0</modelVersion>
 
     <groupId>resolvingarchitecture</groupId>
-	<artifactId>i2p-client</artifactId>
+	<artifactId>i2p-embedded</artifactId>
 	<version>1.1.0</version>
 
 	<packaging>jar</packaging>
 
-	<name>ra-i2p-client</name>
+	<name>ra-i2p-embedded</name>
 	<url>https://resolvingarchitecture.io</url>
-	<description>Resolving Architecture - I2P Client Java</description>
+	<description>Resolving Architecture - I2P Embedded Java</description>
 	<inceptionYear>2017</inceptionYear>
 
 	<properties>
@@ -28,9 +28,9 @@
 	</developers>
 
 	<scm>
-		<connection>scm:git@github.com/resolvingarchitecture/i2p-client-java</connection>
-		<developerConnection>scm:git@github.com/resolvingarchitecture/i2p-client-java</developerConnection>
-		<url>git@github.com/resolvingarchitecture/i2p-client-java</url>
+		<connection>scm:git@github.com/resolvingarchitecture/i2p-embedded-java</connection>
+		<developerConnection>scm:git@github.com/resolvingarchitecture/i2p-embedded-java</developerConnection>
+		<url>git@github.com/resolvingarchitecture/i2p-embedded-java</url>
 	</scm>
 
 	<repositories>
