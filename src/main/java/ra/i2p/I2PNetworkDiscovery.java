@@ -14,9 +14,9 @@ public class I2PNetworkDiscovery extends BaseTask {
 
     private static final Logger LOG = Logger.getLogger(I2PNetworkDiscovery.class.getName());
 
-    private I2PService service;
+    private I2PEmbeddedService service;
 
-    public I2PNetworkDiscovery(I2PService service, TaskRunner taskRunner) {
+    public I2PNetworkDiscovery(I2PEmbeddedService service, TaskRunner taskRunner) {
         super(I2PNetworkDiscovery.class.getSimpleName(), taskRunner);
         this.service = service;
     }
@@ -38,7 +38,7 @@ public class I2PNetworkDiscovery extends BaseTask {
                 Envelope e = Envelope.documentFactory();
                 service.inflightTimers.put(e.getId(), new Date().getTime());
                 DLC.addContent(service.getPeers(), e);
-                DLC.addExternalRoute(I2PService.class, I2PService.OPERATION_SEND, e, service.getNetworkState().localPeer, toPeer);
+                DLC.addExternalRoute(I2PEmbeddedService.class, I2PEmbeddedService.OPERATION_SEND, e, service.getNetworkState().localPeer, toPeer);
                 DLC.mark("NetOpReq", e);
                 e.ratchet();
                 service.sendOut(e);

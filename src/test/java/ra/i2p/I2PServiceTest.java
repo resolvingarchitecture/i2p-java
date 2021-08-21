@@ -1,13 +1,8 @@
 package ra.i2p;
 
 import org.junit.AfterClass;
-import org.junit.Assert;
 import org.junit.BeforeClass;
-import org.junit.Test;
-import ra.common.Envelope;
-import ra.common.network.NetworkBuilderStrategy;
 import ra.common.network.NetworkPeer;
-import ra.common.Wait;
 
 import java.util.Properties;
 import java.util.logging.Logger;
@@ -19,7 +14,7 @@ public class I2PServiceTest {
     private static NetworkPeer orig;
     private static NetworkPeer dest;
     private static MockProducerClient mockProducerClient;
-    private static I2PService service;
+    private static I2PEmbeddedService service;
     private static MockProducerService mockProducerService;
     private static Properties props;
     private static boolean serviceRunning = false;

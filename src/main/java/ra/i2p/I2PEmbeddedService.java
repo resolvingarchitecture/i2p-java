@@ -35,9 +35,9 @@ import java.util.logging.Logger;
 /**
  * Provides an API for I2P Router as a Service.
  */
-public final class I2PService extends NetworkService {
+public final class I2PEmbeddedService extends NetworkService {
 
-    private static final Logger LOG = Logger.getLogger(I2PService.class.getName());
+    private static final Logger LOG = Logger.getLogger(I2PEmbeddedService.class.getName());
 
     public static final String OPERATION_SEND = "SEND";
     public static final String OPERATION_CHECK_ROUTER_STATUS = "CHECK_ROUTER_STATUS";
@@ -78,11 +78,11 @@ public final class I2PService extends NetworkService {
 
     final Map<String,Long> inflightTimers = new HashMap<>();
 
-    public I2PService() {
+    public I2PEmbeddedService() {
         super(Network.I2P);
     }
 
-    public I2PService(MessageProducer messageProducer, ServiceStatusObserver observer) {
+    public I2PEmbeddedService(MessageProducer messageProducer, ServiceStatusObserver observer) {
         super(Network.I2P, messageProducer, observer);
     }
 
@@ -258,9 +258,9 @@ public final class I2PService extends NetworkService {
                 LOG.severe("Unable to create services directory in home/.ra");
                 return false;
             }
-            i2pDir = new File(servicesDir, I2PService.class.getName());
+            i2pDir = new File(servicesDir, I2PEmbeddedService.class.getName());
             if(!i2pDir.exists() && !i2pDir.mkdir()) {
-                LOG.severe("Unable to create "+I2PService.class.getName()+" directory in home/.ra/services");
+                LOG.severe("Unable to create "+ I2PEmbeddedService.class.getName()+" directory in home/.ra/services");
                 return false;
             }
             System.setProperty("i2p.dir.base", i2pDir.getAbsolutePath());
@@ -806,7 +806,7 @@ public final class I2PService extends NetworkService {
                 }
             } else {
                 // called while testing in an IDE
-                URL resource = I2PService.class.getClassLoader().getResource(".");
+                URL resource = I2PEmbeddedService.class.getClassLoader().getResource(".");
                 File file = null;
                 try {
                     file = new File(resource.toURI());
@@ -865,7 +865,7 @@ public final class I2PService extends NetworkService {
                 return false;
             }
         };
-        I2PService service = new I2PService(messageProducer, null);
+        I2PEmbeddedService service = new I2PEmbeddedService(messageProducer, null);
         service.start(Config.loadFromMainArgs(args));
         while(true) {
             Wait.aSec(1);

@@ -48,12 +48,12 @@ class I2PSession extends BaseClientSession implements I2PSessionMuxedListener {
     private I2PSocketManager socketManager;
     private boolean isTest = false;
 
-    protected I2PService service;
+    protected I2PEmbeddedService service;
     protected net.i2p.client.I2PSession i2pSession;
     protected boolean connected = false;
     protected String address;
 
-    public I2PSession(I2PService service) {
+    public I2PSession(I2PEmbeddedService service) {
         this.service = service;
     }
 
@@ -414,7 +414,7 @@ class I2PSession extends BaseClientSession implements I2PSessionMuxedListener {
                 }
                 envelope.mark("NetOpRes");
                 envelope.addContent(service.getPeers());
-                envelope.addExternalRoute(I2PService.class, I2PService.OPERATION_SEND, service.getNetworkState().localPeer, origination);
+                envelope.addExternalRoute(I2PEmbeddedService.class, I2PEmbeddedService.OPERATION_SEND, service.getNetworkState().localPeer, origination);
                 envelope.ratchet();
                 LOG.info("Received NetOpReq id: "+envelope.getId().substring(0,7)+"... from: "+fingerprint.substring(0,7)+"... total peers known: "+service.getNumberPeers());
                 send(envelope);

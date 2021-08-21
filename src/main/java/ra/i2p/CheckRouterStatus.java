@@ -5,9 +5,9 @@ import ra.common.tasks.TaskRunner;
 
 class CheckRouterStatus extends BaseTask {
 
-    private I2PService service;
+    private I2PEmbeddedService service;
 
-    public CheckRouterStatus(I2PService service, TaskRunner taskRunner) {
+    public CheckRouterStatus(I2PEmbeddedService service, TaskRunner taskRunner) {
         super(CheckRouterStatus.class.getSimpleName(), taskRunner);
         this.service = service;
     }
