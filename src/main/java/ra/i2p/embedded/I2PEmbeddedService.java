@@ -462,9 +462,6 @@ public final class I2PEmbeddedService extends NetworkService {
             int currentWait = 0;
             while(!routerContext.router().isAlive()) {
                 Wait.aSec(10);
-
-
-
                 currentWait+=10;
                 if(currentWait > maxWaitSec) {
                     LOG.warning("Restart failed.");

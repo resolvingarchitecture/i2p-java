@@ -9,9 +9,14 @@ to a local instance of the I2P Router.
 to be copied to resources/certificates keeping reseed and ssl as directories:
     - /installer/resources/certificates/reseed
     - /installer/resources/certificates/ssl
+update
+
+## Control
+I2P Router Control via: https://github.com/i2p/i2p.itoopie when in local mode.
 
 ## Roadmap
-* 0.9.x: Basic P2P communications using embedded I2P router and ElGamal-2048 / DSA-1024
+* 0.9.50.0: Basic P2P communications using embedded I2P router and ElGamal-2048 / DSA-1024
+* Add local router identification and use if available over embedded.
 * TBD
     * Verify ECDH-256 / ECDSA-256 works
     * Verify ECDH-521 / ECDSA-521 works
