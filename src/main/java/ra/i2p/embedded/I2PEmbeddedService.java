@@ -234,7 +234,7 @@ public final class I2PEmbeddedService extends NetworkService {
         LOG.info("Loading I2P properties...");
         try {
             // Load environment variables first
-            config = Config.loadAll(p, "i2p-client.config");
+            config = Config.loadAll(p, "i2p-embedded.config");
         } catch (Exception e) {
             LOG.severe(e.getLocalizedMessage());
             return false;
