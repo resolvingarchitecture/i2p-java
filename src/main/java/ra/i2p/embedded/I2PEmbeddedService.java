@@ -12,7 +12,6 @@ import net.i2p.util.Log;
 import net.i2p.util.OrderedProperties;
 import net.i2p.util.SystemVersion;
 import ra.common.Client;
-import ra.common.DLC;
 import ra.common.Envelope;
 import ra.common.messaging.MessageProducer;
 import ra.common.network.*;
@@ -102,46 +101,46 @@ public final class I2PEmbeddedService extends NetworkService {
             case OPERATION_LOCAL_PEER_COUNTRY: {
                 NetworkPeer localPeer = getNetworkState().localPeer;
                 if(localPeer==null) {
-                    DLC.addNVP("country", "NoLocalPeer", e);
+                    e.addNVP("country", "NoLocalPeer");
                 } else {
-                    DLC.addNVP("country", country(localPeer), e);
+                    e.addNVP("country", country(localPeer));
                 }
                 break;
             }
             case OPERATION_REMOTE_PEER_COUNTRY: {
-                NetworkPeer remotePeer = (NetworkPeer)DLC.getValue("remotePeer", e);
+                NetworkPeer remotePeer = (NetworkPeer)e.getValue("remotePeer");
                 if(remotePeer==null) {
-                    DLC.addNVP("country", "NoRemotePeer", e);
+                    e.addNVP("country", "NoRemotePeer");
                 } else {
-                    DLC.addNVP("country", country(remotePeer), e);
+                    e.addNVP("country", country(remotePeer));
                 }
                 break;
             }
             case OPERATION_IN_STRICT_COUNTRY: {
-                NetworkPeer peer = (NetworkPeer)DLC.getValue("peer", e);
+                NetworkPeer peer = (NetworkPeer)e.getValue("peer");
                 if(peer==null) {
-                    DLC.addNVP("localPeerCountry", inStrictCountry(), e);
+                    e.addNVP("localPeerCountry", inStrictCountry());
                 } else {
-                    DLC.addNVP("peerCountry", inStrictCountry(peer), e);
+                    e.addNVP("peerCountry", inStrictCountry(peer));
                 }
                 break;
             }
             case OPERATION_UPDATE_HIDDEN_MODE: {
-                Object hiddenModeObj = DLC.getValue("hiddenMode", e);
+                Object hiddenModeObj = e.getValue("hiddenMode");
                 if(hiddenModeObj!=null) {
                     updateHiddenMode((((String)hiddenModeObj).toLowerCase()).equals("true"));
                 }
                 break;
             }
             case OPERATION_UPDATE_SHARE_PERCENTAGE: {
-                Object sharePerc = DLC.getValue("sharePercentage", e);
+                Object sharePerc = e.getValue("sharePercentage");
                 if(sharePerc!=null) {
                     updateSharePercentage(Integer.parseInt((String)sharePerc));
                 }
                 break;
             }
             case OPERATION_UPDATE_GEOIP_ENABLEMENT: {
-                Object sharePerc = DLC.getValue("enableGeoIP", e);
+                Object sharePerc = e.getValue("enableGeoIP");
                 if(sharePerc!=null) {
                     updateGeoIPEnablement((((String)sharePerc).toLowerCase()).equals("true"));
                 }
@@ -149,7 +148,7 @@ public final class I2PEmbeddedService extends NetworkService {
             }
             case OPERATION_ACTIVE_PEERS_COUNT: {
                 Integer count = activePeersCount();
-                DLC.addNVP("activePeersCount", count, e);
+                e.addNVP("activePeersCount", count);
                 break;
             }
             default: {

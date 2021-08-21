@@ -5,7 +5,7 @@
 
     <groupId>resolvingarchitecture</groupId>
 	<artifactId>i2p-embedded</artifactId>
-	<version>0.9.50.1</version>
+	<version>0.9.50.2</version>
 
 	<packaging>jar</packaging>
 
