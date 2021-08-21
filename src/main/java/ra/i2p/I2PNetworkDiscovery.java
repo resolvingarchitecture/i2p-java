@@ -4,8 +4,8 @@ import ra.common.DLC;
 import ra.common.Envelope;
 import ra.common.network.NetworkPeer;
 import ra.common.network.NetworkStatus;
-import ra.util.tasks.BaseTask;
-import ra.util.tasks.TaskRunner;
+import ra.common.tasks.BaseTask;
+import ra.common.tasks.TaskRunner;
 
 import java.util.Date;
 import java.util.logging.Logger;

@@ -2,7 +2,7 @@ package ra.i2p;
 
 import net.i2p.router.Router;
 import net.i2p.router.RouterContext;
-import ra.util.SystemSettings;
+import ra.common.SystemSettings;
 
 import java.io.File;
 import java.io.IOException;

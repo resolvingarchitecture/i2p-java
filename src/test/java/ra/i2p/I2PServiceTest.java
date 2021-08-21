@@ -4,9 +4,10 @@ import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Test;
+import ra.common.Envelope;
 import ra.common.network.NetworkBuilderStrategy;
 import ra.common.network.NetworkPeer;
-import ra.util.Wait;
+import ra.common.Wait;
 
 import java.util.Properties;
 import java.util.logging.Logger;
@@ -29,7 +30,7 @@ public class I2PServiceTest {
         props = new Properties();
         props.put("ra.tor.privkey.destroy", "true");
         mockProducerClient = new MockProducerClient();
-        service = new I2PService(mockProducerClient, null);
+//        service = new I2PService(mockProducerClient, null);
 //        service.start(props);
 //        Wait.aMin(2); // Wait 2 minutes for I2P network to warm up
     }
@@ -51,11 +52,11 @@ public class I2PServiceTest {
 //    @Test
 //    public void peer2Peer() {
 //        Envelope e = Envelope.documentFactory();
-//        DLC.addExternalRoute(TORClientService.class, HTTPClientService.OPERATION_SEND, e, orig, dest);
-//        DLC.mark("op", e);
+//        e.addExternalRoute(TORClientService.class, HTTPClientService.OPERATION_SEND, e, orig, dest);
+//        e.mark("op", e);
 //        // Ratchet route for testing
-////        e.getDynamicRoutingSlip().nextRoute();
-//        clientService.handleDocument(e);
-//        Assert.assertTrue("{op=200}".equals(DLC.getContent(e)));
+//        e.getDynamicRoutingSlip().nextRoute();
+//        service.handleDocument(e);
+//        Assert.assertTrue("{op=200}".equals(e.getContent()));
 //    }
 }

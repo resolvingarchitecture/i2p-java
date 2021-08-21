@@ -21,7 +21,7 @@ import ra.common.identity.DID;
 import ra.common.network.*;
 import ra.common.route.ExternalRoute;
 import ra.common.route.Route;
-import ra.util.JSONParser;
+import ra.common.JSONParser;
 
 import java.io.*;
 import java.util.*;

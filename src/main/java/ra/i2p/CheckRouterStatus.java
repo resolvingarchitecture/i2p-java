@@ -1,7 +1,7 @@
 package ra.i2p;
 
-import ra.util.tasks.BaseTask;
-import ra.util.tasks.TaskRunner;
+import ra.common.tasks.BaseTask;
+import ra.common.tasks.TaskRunner;
 
 class CheckRouterStatus extends BaseTask {
 
