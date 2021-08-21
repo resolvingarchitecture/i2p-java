@@ -1,4 +1,4 @@
-# I2P Service
+# I2P Embedded Service
 Invisible Internet Project (I2P) Service. Wraps an I2P Router as a service so that it can be easily managed
 and used by 3rd party decentralized applications. Currently, only an embedded I2P router is supported which
 may conflict with any already running I2P router due to port conflicts. Future support will include detection of and connecting
@@ -19,48 +19,14 @@ to be copied to resources/certificates keeping reseed and ssl as directories:
     * Provide the most granular means of supporting each algorithm set (down to each message if possible)
     * Provide means to use each algorithm set by request
 
-## Integration
-
-### Embedded
-Current integration method. External support to come later.
-
-### External
-Control via: https://github.com/i2p/i2p.itoopie
-
-## Installation
-Currently, I2P Service embeds the I2P router. In the future,
-external I2P router will be supported. When that happens, the following
-installations are recommended:
-
-Router with original UI:
-
-https://geti2p.net/en/download
-
-I2P Zero - zero dependency build of I2P router with minimal gui
-
-https://github.com/i2p-zero/i2p-zero
-
-* Ensure your firewall is opened to the random port assigned on startup for both tcp and udp.
-* Open port 123 on udp for time sync if on (default)
-
-## Removal
-
-### Raspian
-
-#### I2P External Router
-Note: Not yet supported
-```
-sudo apt remove i2p
-sudo apt remove i2prouter
-sudo apt autoremove
-sudo apt autoclean
-```
-
 ## Attack Mitigation
 
 - https://www.irongeek.com/i.php?page=security/i2p-identify-service-hosts-eepsites
 
 ## Version Notes
+
+### 0.9.50.1
+- upgraded to 0.9.50 moving versioning to reflect I2P version
 
 ### 0.6.5
 - upgraded to 0.9.47
