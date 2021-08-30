@@ -273,6 +273,10 @@ class I2PSession extends BaseClientSession implements I2PSessionMuxedListener {
             LOG.warning("No Envelope.");
             return false;
         }
+        if(service.getLocalPeer()==null) {
+            envelope.getMessage().addErrorMessage("I2P Embedded Service has no local peer yet.");
+            return false;
+        }
         if(!(envelope.getRoute() instanceof ExternalRoute)) {
             LOG.warning("Not an external route.");
             envelope.getMessage().addErrorMessage("Route must be external.");
@@ -287,6 +291,15 @@ class I2PSession extends BaseClientSession implements I2PSessionMuxedListener {
         if (!Network.I2P.equals(er.getDestination().getNetwork())) {
             LOG.warning("Not an envelope for I2P.");
             envelope.getMessage().addErrorMessage("Code:" + ExternalRoute.DESTINATION_PEER_WRONG_NETWORK+", Not meant for I2P Network.");
+            return false;
+        }
+        NetworkPeer localPeer = service.getLocalPeer();
+        if(localPeer.getDid()==null || localPeer.getDid().getPublicKey()==null || localPeer.getDid().getPublicKey().getFingerprint()==null || localPeer.getDid().getPublicKey().getAddress()==null) {
+            envelope.getMessage().addErrorMessage("Local Peer not ready.");
+            return false;
+        }
+        if(er.getDestination().equals(localPeer)) {
+            envelope.getMessage().addErrorMessage("Can not send to self.");
             return false;
         }
 
