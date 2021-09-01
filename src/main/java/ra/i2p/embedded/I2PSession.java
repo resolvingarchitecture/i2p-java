@@ -16,6 +16,7 @@ import net.i2p.data.Destination;
 import net.i2p.util.SecureFile;
 import net.i2p.util.SecureFileOutputStream;
 import ra.common.Envelope;
+import ra.common.FileUtil;
 import ra.common.identity.DID;
 import ra.common.network.*;
 import ra.common.route.ExternalRoute;
@@ -23,6 +24,7 @@ import ra.common.route.Route;
 import ra.common.JSONParser;
 
 import java.io.*;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.logging.Logger;
 
@@ -128,9 +130,8 @@ class I2PSession extends BaseClientSession implements I2PSessionMuxedListener {
             LOG.info("Creating new local destination key");
             try {
                 ByteArrayOutputStream arrayStream = new ByteArrayOutputStream();
-                I2PClientFactory.createClient().createDestination(arrayStream, SigType.DSA_SHA1);
+                I2PClientFactory.createClient().createDestination(arrayStream, SigType.ECDSA_SHA512_P521);
                 byte[] localDestinationKey = arrayStream.toByteArray();
-
                 LOG.info("Creating I2P Socket Manager...");
                 ByteArrayInputStream inputStream = new ByteArrayInputStream(localDestinationKey);
                 socketManager = I2PSocketManagerFactory.createDisconnectedManager(inputStream, null, 0, properties);
@@ -164,7 +165,9 @@ class I2PSession extends BaseClientSession implements I2PSessionMuxedListener {
             }
         }
         i2pSession = socketManager.getSession();
-        if(localI2PPeer.getDid().getPublicKey().getAddress()==null
+        if(localI2PPeer.getDid()==null
+                || localI2PPeer.getDid().getPublicKey()==null
+                || localI2PPeer.getDid().getPublicKey().getAddress()==null
                 || localI2PPeer.getDid().getPublicKey().getAddress().isEmpty()) {
             Destination localDestination = i2pSession.getMyDestination();
             address = localDestination.toBase64();
@@ -173,16 +176,36 @@ class I2PSession extends BaseClientSession implements I2PSessionMuxedListener {
             // Ensure network is correct
             localI2PPeer.setNetwork(Network.I2P);
             // Add destination to PK and update DID info
-            localI2PPeer.getDid().setStatus(DID.Status.ACTIVE);
-            localI2PPeer.getDid().setDescription("DID for I2PSensorSession");
-            localI2PPeer.getDid().setAuthenticated(true);
-            localI2PPeer.getDid().setVerified(true);
-            localI2PPeer.getDid().getPublicKey().setAlias(alias);
-            localI2PPeer.getDid().getPublicKey().isIdentityKey(true);
-            localI2PPeer.getDid().getPublicKey().setAddress(address);
-            localI2PPeer.getDid().getPublicKey().setBase64Encoded(true);
-            localI2PPeer.getDid().getPublicKey().setFingerprint(fingerprint);
-            localI2PPeer.getDid().getPublicKey().setType(algorithm);
+            DID did = new DID();
+            did.setStatus(DID.Status.ACTIVE);
+            did.setDescription("DID for I2PSensorSession");
+            did.setAuthenticated(true);
+            did.setVerified(true);
+            did.getPublicKey().setAlias(alias);
+            did.getPublicKey().isIdentityKey(true);
+            did.getPublicKey().setAddress(address);
+            did.getPublicKey().setBase64Encoded(true);
+            did.getPublicKey().setFingerprint(fingerprint);
+            did.getPublicKey().setType(algorithm);
+            localI2PPeer.setDid(did);
+
+            try {
+                File localI2PPeerFile = new SecureFile(service.getDirectory(), alias+".json");
+                if (localI2PPeerFile.exists()) {
+                    File oldKeyFile = new File(localI2PPeerFile.getPath() + "_backup");
+                    if (!localI2PPeerFile.renameTo(oldKeyFile)) {
+                        LOG.warning("Cannot rename local peer json file <" + localI2PPeerFile.getAbsolutePath() + "> to <" + oldKeyFile.getAbsolutePath() + ">");
+                        return false;
+                    }
+                } else if (!localI2PPeerFile.createNewFile()) {
+                    LOG.warning("Cannot create local peer json file: <" + localI2PPeerFile.getAbsolutePath() + ">");
+                    return false;
+                }
+
+                FileUtil.writeFile(localI2PPeer.toJSON().getBytes(StandardCharsets.UTF_8), localI2PPeerFile.getAbsolutePath());
+            } catch (IOException e) {
+                LOG.warning(e.getLocalizedMessage());
+            }
 
             // Only for testing; remove for production
             String country = service.routerContext.commSystem().getCountry(localDestination.getHash());

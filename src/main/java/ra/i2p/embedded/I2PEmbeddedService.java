@@ -365,19 +365,6 @@ public final class I2PEmbeddedService extends NetworkService {
 
         // Set dependent services
 //        addDependentService(NotificationService.class);
-        if(config.get("ra.i2p.seeds")!=null) {
-            String seedsList = config.getProperty("ra.i2p.seeds");
-            String[] seeds = seedsList.split(";");
-            for(String seed : seeds) {
-                String[] parts = seed.split(":");
-                String fingerprint = parts[0];
-                String address = parts[1];
-                NetworkPeer np = new NetworkPeer(Network.I2P);
-                np.getDid().getPublicKey().setFingerprint(fingerprint);
-                np.getDid().getPublicKey().setAddress(address);
-                peers.put(fingerprint, np);
-            }
-        }
 
         updateStatus(ServiceStatus.STARTING);
         // Start I2P Router
