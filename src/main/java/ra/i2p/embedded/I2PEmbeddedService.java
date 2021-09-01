@@ -391,14 +391,11 @@ public final class I2PEmbeddedService extends NetworkService {
         Wait.aMs(500); // Give the router a bit of breathing room before launching tasks
 
         if(taskRunner==null) {
-            taskRunner = new TaskRunner(2, 2);
+            taskRunner = new TaskRunner(1, 1);
             taskRunner.setPeriodicity(1000L); // Default check every second
             CheckRouterStatus statusChecker = new CheckRouterStatus(this, taskRunner);
             statusChecker.setPeriodicity(30 * 1000L); // Check status every 30 seconds
             taskRunner.addTask(statusChecker);
-            I2PNetworkDiscovery discovery = new I2PNetworkDiscovery(this, taskRunner);
-            discovery.setPeriodicity(120 * 1000L); // Set periodicity to 30 seconds longer than I2P network timeout (90 seconds).
-            taskRunner.addTask(discovery);
         }
 
         taskRunnerThread = new Thread(taskRunner);
