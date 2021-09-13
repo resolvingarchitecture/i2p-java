@@ -2,6 +2,7 @@ package ra.i2p.embedded;
 
 import net.i2p.I2PException;
 import net.i2p.client.I2PClientFactory;
+import net.i2p.client.I2PSession;
 import net.i2p.client.I2PSessionException;
 import net.i2p.client.I2PSessionMuxedListener;
 import net.i2p.client.datagram.I2PDatagramDissector;
@@ -28,9 +29,9 @@ import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.logging.Logger;
 
-class I2PSession extends BaseClientSession implements I2PSessionMuxedListener {
+class I2PEmbeddedServiceSession extends BaseClientSession implements I2PSessionMuxedListener {
 
-    private static final Logger LOG = Logger.getLogger(I2PSession.class.getName());
+    private static final Logger LOG = Logger.getLogger(I2PEmbeddedServiceSession.class.getName());
 
     // I2CP parameters allowed in the config file
     // Undefined parameters use the I2CP defaults
@@ -51,11 +52,11 @@ class I2PSession extends BaseClientSession implements I2PSessionMuxedListener {
     private boolean isTest = false;
 
     protected I2PEmbeddedService service;
-    protected net.i2p.client.I2PSession i2pSession;
+    protected I2PSession i2pSession;
     protected boolean connected = false;
     protected String address;
 
-    public I2PSession(I2PEmbeddedService service) {
+    public I2PEmbeddedServiceSession(I2PEmbeddedService service) {
         this.service = service;
     }
 
@@ -220,11 +221,11 @@ class I2PSession extends BaseClientSession implements I2PSessionMuxedListener {
         service.getNetworkState().localPeer = localI2PPeer;
         LOG.info("Local I2P Peer Address in base64: " + localI2PPeer.getDid().getPublicKey().getAddress());
         LOG.info("Local I2P Peer Fingerprint (hash) in base64: " + localI2PPeer.getDid().getPublicKey().getFingerprint());
-        // Update Peer Manager
-//        Envelope pEnv = Envelope.documentFactory();
-//        DLC.addContent(localI2PPeer, pEnv);
-//        DLC.addRoute("ra.peermanager.PeerManagerService","UPDATE_PEER", pEnv);
-//        service.send(pEnv);
+        // Update Network Manager
+        Envelope e = Envelope.documentFactory();
+        e.addNVP("ra.common.network.NetworkPeer", localI2PPeer);
+        e.addRoute("ra.networmanager.NetworkManagerService","UPDATE_LOCAL_PEER");
+        service.send(e);
         return true;
     }
 
@@ -253,7 +254,7 @@ class I2PSession extends BaseClientSession implements I2PSessionMuxedListener {
         long durationMs = end - start;
         LOG.info("I2P Session connected. Took "+(durationMs/1000)+" seconds.");
 
-        i2pSession.addMuxedSessionListener(this, net.i2p.client.I2PSession.PROTO_ANY, net.i2p.client.I2PSession.PORT_ANY);
+        i2pSession.addMuxedSessionListener(this, I2PSession.PROTO_ANY, I2PSession.PORT_ANY);
 
         return true;
     }
