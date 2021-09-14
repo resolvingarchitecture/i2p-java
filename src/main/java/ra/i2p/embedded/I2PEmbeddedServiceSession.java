@@ -224,7 +224,7 @@ class I2PEmbeddedServiceSession extends BaseClientSession implements I2PSessionM
         // Update Network Manager
         Envelope e = Envelope.documentFactory();
         e.addNVP("ra.common.network.NetworkPeer", localI2PPeer);
-        e.addRoute("ra.networmanager.NetworkManagerService","UPDATE_LOCAL_PEER");
+        e.addRoute("ra.networkmanager.NetworkManagerService","UPDATE_LOCAL_PEER");
         service.send(e);
         return true;
     }
