@@ -128,7 +128,7 @@ public final class I2PEmbeddedService extends NetworkService {
             case OPERATION_UPDATE_HIDDEN_MODE: {
                 Object hiddenModeObj = e.getValue("hiddenMode");
                 if(hiddenModeObj!=null) {
-                    updateHiddenMode((((String)hiddenModeObj).toLowerCase()).equals("true"));
+                    updateHiddenMode(((String)hiddenModeObj).equalsIgnoreCase("true"));
                 }
                 break;
             }
