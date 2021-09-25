@@ -54,10 +54,10 @@ public final class I2PService extends NetworkService {
      * 3 = ECDH-521 / ECDSA-521
      * 4 = NTRUEncrypt-1087 / GMSS-512
      */
-    protected static int ElGamal2048DSA1024 = 1;
-    protected static int ECDH256ECDSA256 = 2;
-    protected static int ECDH521EDCSA521 = 3;
-    protected static int NTRUEncrypt1087GMSS512 = 4;
+    private static int ElGamal2048DSA1024 = 1;
+    private static int ECDH256ECDSA256 = 2;
+    private static int ECDH521EDCSA521 = 3;
+    private static int NTRUEncrypt1087GMSS512 = 4;
 
     // I2P Router and Context
     private File i2pDir;
