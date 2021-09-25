@@ -4,14 +4,14 @@
 	<modelVersion>4.0.0</modelVersion>
 
     <groupId>resolvingarchitecture</groupId>
-	<artifactId>i2p-embedded</artifactId>
-	<version>0.9.50.8</version>
+	<artifactId>i2p</artifactId>
+	<version>0.9.50.9</version>
 
 	<packaging>jar</packaging>
 
-	<name>ra-i2p-embedded</name>
+	<name>ra-i2p</name>
 	<url>https://resolvingarchitecture.io</url>
-	<description>Resolving Architecture - I2P Embedded Java</description>
+	<description>Resolving Architecture - I2P Java</description>
 	<inceptionYear>2017</inceptionYear>
 
 	<properties>
@@ -45,13 +45,13 @@
 		<dependency>
 			<groupId>resolvingarchitecture</groupId>
 			<artifactId>common</artifactId>
-			<version>1.1.0</version>
+			<version>1.2.0</version>
 		</dependency>
 
         <dependency>
             <groupId>resolvingarchitecture</groupId>
             <artifactId>notification</artifactId>
-            <version>1.1.0</version>
+            <version>1.2.0</version>
         </dependency>
 
         <dependency>

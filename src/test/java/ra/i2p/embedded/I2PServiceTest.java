@@ -3,7 +3,7 @@ package ra.i2p.embedded;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import ra.common.network.NetworkPeer;
-import ra.i2p.embedded.I2PEmbeddedService;
+import ra.i2p.I2PService;
 
 import java.util.Properties;
 import java.util.logging.Logger;
@@ -15,7 +15,7 @@ public class I2PServiceTest {
     private static NetworkPeer orig;
     private static NetworkPeer dest;
     private static MockProducerClient mockProducerClient;
-    private static I2PEmbeddedService service;
+    private static I2PService service;
     private static MockProducerService mockProducerService;
     private static Properties props;
     private static boolean serviceRunning = false;

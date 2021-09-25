@@ -1,4 +1,4 @@
-# I2P Embedded Service
+# I2P Service
 Invisible Internet Project (I2P) Service. Wraps an I2P Router as a service so that it can be easily managed
 and used by 3rd party decentralized applications. Currently, only an embedded I2P router is supported which
 may conflict with any already running I2P router due to port conflicts. Future support will include detection of and connecting

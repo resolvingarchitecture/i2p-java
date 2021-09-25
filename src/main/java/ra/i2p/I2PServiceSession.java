@@ -1,4 +1,4 @@
-package ra.i2p.embedded;
+package ra.i2p;
 
 import net.i2p.I2PException;
 import net.i2p.client.I2PClientFactory;
@@ -29,9 +29,9 @@ import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.logging.Logger;
 
-class I2PEmbeddedServiceSession extends BaseClientSession implements I2PSessionMuxedListener {
+class I2PServiceSession extends BaseClientSession implements I2PSessionMuxedListener {
 
-    private static final Logger LOG = Logger.getLogger(I2PEmbeddedServiceSession.class.getName());
+    private static final Logger LOG = Logger.getLogger(I2PServiceSession.class.getName());
 
     // I2CP parameters allowed in the config file
     // Undefined parameters use the I2CP defaults
@@ -51,12 +51,12 @@ class I2PEmbeddedServiceSession extends BaseClientSession implements I2PSessionM
     private I2PSocketManager socketManager;
     private boolean isTest = false;
 
-    protected I2PEmbeddedService service;
+    protected I2PService service;
     protected I2PSession i2pSession;
     protected boolean connected = false;
     protected String address;
 
-    public I2PEmbeddedServiceSession(I2PEmbeddedService service) {
+    public I2PServiceSession(I2PService service) {
         this.service = service;
     }
 
@@ -451,7 +451,7 @@ class I2PEmbeddedServiceSession extends BaseClientSession implements I2PSessionM
                 }
                 envelope.mark("NetOpRes");
                 envelope.addContent(service.getPeers());
-                envelope.addExternalRoute(I2PEmbeddedService.class, I2PEmbeddedService.OPERATION_SEND, service.getNetworkState().localPeer, origination);
+                envelope.addExternalRoute(I2PService.class, I2PService.OPERATION_SEND, service.getNetworkState().localPeer, origination);
                 envelope.ratchet();
                 LOG.info("Received NetOpReq id: "+envelope.getId().substring(0,7)+"... from: "+fingerprint.substring(0,7)+"... total peers known: "+service.getNumberPeers());
                 send(envelope);

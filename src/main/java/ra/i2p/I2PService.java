@@ -1,4 +1,4 @@
-package ra.i2p.embedded;
+package ra.i2p;
 
 import net.i2p.client.I2PClient;
 import net.i2p.data.DataHelper;
@@ -34,9 +34,9 @@ import java.util.logging.Logger;
 /**
  * Provides an API for I2P Router as a Service.
  */
-public final class I2PEmbeddedService extends NetworkService {
+public final class I2PService extends NetworkService {
 
-    private static final Logger LOG = Logger.getLogger(I2PEmbeddedService.class.getName());
+    private static final Logger LOG = Logger.getLogger(I2PService.class.getName());
 
     public static final String OPERATION_SEND = "SEND";
     public static final String OPERATION_CHECK_ROUTER_STATUS = "CHECK_ROUTER_STATUS";
@@ -73,15 +73,15 @@ public final class I2PEmbeddedService extends NetworkService {
     private boolean embedded = true;
     private boolean isTest = false;
     private TaskRunner taskRunner;
-    private Map<String, I2PEmbeddedServiceSession> sessions = new HashMap<>();
+    private Map<String, I2PServiceSession> sessions = new HashMap<>();
 
     final Map<String,Long> inflightTimers = new HashMap<>();
 
-    public I2PEmbeddedService() {
+    public I2PService() {
         super(Network.I2P);
     }
 
-    public I2PEmbeddedService(MessageProducer messageProducer, ServiceStatusObserver observer) {
+    public I2PService(MessageProducer messageProducer, ServiceStatusObserver observer) {
         super(Network.I2P, messageProducer, observer);
     }
 
@@ -158,12 +158,12 @@ public final class I2PEmbeddedService extends NetworkService {
         }
     }
 
-    private I2PEmbeddedServiceSession establishSession(String address, Boolean autoConnect) {
+    private I2PServiceSession establishSession(String address, Boolean autoConnect) {
         if(address==null) {
             address = "default";
         }
         if(sessions.get(address)==null) {
-            I2PEmbeddedServiceSession session = new I2PEmbeddedServiceSession(this);
+            I2PServiceSession session = new I2PServiceSession(this);
             session.init(config);
             session.open(null);
             if (autoConnect) {
@@ -257,9 +257,9 @@ public final class I2PEmbeddedService extends NetworkService {
                 LOG.severe("Unable to create services directory in home/.ra");
                 return false;
             }
-            i2pDir = new File(servicesDir, I2PEmbeddedService.class.getName());
+            i2pDir = new File(servicesDir, I2PService.class.getName());
             if(!i2pDir.exists() && !i2pDir.mkdir()) {
-                LOG.severe("Unable to create "+ I2PEmbeddedService.class.getName()+" directory in home/.ra/services");
+                LOG.severe("Unable to create "+ I2PService.class.getName()+" directory in home/.ra/services");
                 return false;
             }
             System.setProperty("i2p.dir.base", i2pDir.getAbsolutePath());
@@ -629,7 +629,7 @@ public final class I2PEmbeddedService extends NetworkService {
             LOG.warning("Network Peer with address is required to determine if peer is unreachable.");
             return false;
         }
-        I2PEmbeddedServiceSession session = establishSession("default", true);
+        I2PServiceSession session = establishSession("default", true);
         Destination dest = session.lookupDest(networkPeer.getDid().getPublicKey().getAddress());
         return routerContext.commSystem().wasUnreachable(dest.getHash());
     }
@@ -643,7 +643,7 @@ public final class I2PEmbeddedService extends NetworkService {
             LOG.warning("Network Peer with address is required to determine if peer is in strict country.");
             return false;
         }
-        I2PEmbeddedServiceSession session = establishSession("default", true);
+        I2PServiceSession session = establishSession("default", true);
         Destination dest = session.lookupDest(networkPeer.getDid().getPublicKey().getAddress());
         return routerContext.commSystem().isInStrictCountry(dest.getHash());
     }
@@ -653,7 +653,7 @@ public final class I2PEmbeddedService extends NetworkService {
             LOG.warning("Network Peer with address is required to determine if peer is backlogged.");
             return false;
         }
-        I2PEmbeddedServiceSession session = establishSession("default", true);
+        I2PServiceSession session = establishSession("default", true);
         Destination dest = session.lookupDest(networkPeer.getDid().getPublicKey().getAddress());
         return routerContext.commSystem().isBacklogged(dest.getHash());
     }
@@ -663,7 +663,7 @@ public final class I2PEmbeddedService extends NetworkService {
             LOG.warning("Network Peer with address is required to determine if peer is established.");
             return false;
         }
-        I2PEmbeddedServiceSession session = establishSession("default", true);
+        I2PServiceSession session = establishSession("default", true);
         Destination dest = session.lookupDest(networkPeer.getDid().getPublicKey().getAddress());
         return routerContext.commSystem().isEstablished(dest.getHash());
     }
@@ -673,7 +673,7 @@ public final class I2PEmbeddedService extends NetworkService {
             LOG.warning("Network Peer with address is required to determine country of peer.");
             return "NoPeer";
         }
-        I2PEmbeddedServiceSession session = establishSession("default", true);
+        I2PServiceSession session = establishSession("default", true);
         Destination dest = session.lookupDest(networkPeer.getDid().getPublicKey().getAddress());
         return routerContext.commSystem().getCountry(dest.getHash());
     }
@@ -786,7 +786,7 @@ public final class I2PEmbeddedService extends NetworkService {
                 }
             } else {
                 // called while testing in an IDE
-                URL resource = I2PEmbeddedService.class.getClassLoader().getResource(".");
+                URL resource = I2PService.class.getClassLoader().getResource(".");
                 File file = null;
                 try {
                     file = new File(resource.toURI());
@@ -845,7 +845,7 @@ public final class I2PEmbeddedService extends NetworkService {
                 return false;
             }
         };
-        I2PEmbeddedService service = new I2PEmbeddedService(messageProducer, null);
+        I2PService service = new I2PService(messageProducer, null);
         service.start(Config.loadFromMainArgs(args));
         while(true) {
             Wait.aSec(1);
