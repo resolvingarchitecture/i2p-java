@@ -429,7 +429,7 @@ class I2PServiceSession extends BaseClientSession implements I2PSessionMuxedList
             // Update local cache
             service.addPeer(origination);
             if(envelope.markerPresent("NetOpRes")) {
-                List<NetworkPeer> recommendedPeers = (List<NetworkPeer>) envelope.getContent();
+                List<NetworkPeer> recommendedPeers = (List<NetworkPeer>) envelope.getValue(NetworkPeer.class.getName());
                 if (recommendedPeers != null) {
                     LOG.info(recommendedPeers.size() + " Known Peers Received.");
                     service.addPeers(recommendedPeers);
@@ -443,6 +443,11 @@ class I2PServiceSession extends BaseClientSession implements I2PSessionMuxedList
                     }
                 }
                 LOG.info("Received NetOpRes id: "+envelope.getId().substring(0,7)+"... from: "+fingerprint.substring(0,7) + (diff > 0L ? ("... in " + diff + " ms roundtrip; ") : "..." )+" total peers known: "+service.getNumberPeers());
+                // Update Network Manager
+                Envelope netMgrEnv = Envelope.documentFactory();
+                netMgrEnv.addNVP(NetworkPeer.class.getName(), recommendedPeers);
+                netMgrEnv.addRoute("ra.networkmanager.NetworkManagerService", "OPERATION_UPDATE_PEERS");
+                send(netMgrEnv);
             } else if(envelope.markerPresent("NetOpReq")) {
                 List<NetworkPeer> recommendedPeers = (List<NetworkPeer>) envelope.getContent();
                 if (recommendedPeers != null) {
@@ -450,9 +455,8 @@ class I2PServiceSession extends BaseClientSession implements I2PSessionMuxedList
                     service.addPeers(recommendedPeers);
                 }
                 envelope.mark("NetOpRes");
-                envelope.addContent(service.getPeers());
+                envelope.addNVP(NetworkPeer.class.getName(), service.getPeers());
                 envelope.addExternalRoute(I2PService.class, I2PService.OPERATION_SEND, service.getNetworkState().localPeer, origination);
-                envelope.ratchet();
                 LOG.info("Received NetOpReq id: "+envelope.getId().substring(0,7)+"... from: "+fingerprint.substring(0,7)+"... total peers known: "+service.getNumberPeers());
                 send(envelope);
             } else {
