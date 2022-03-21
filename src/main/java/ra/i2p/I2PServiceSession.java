@@ -178,6 +178,9 @@ class I2PServiceSession extends BaseClientSession implements I2PSessionMuxedList
             if(localI2PPeer==null) {
                 localI2PPeer = new NetworkPeer(Network.I2P);
             }
+            if(localI2PPeer.getId()==null) {
+                localI2PPeer.setId(UUID.randomUUID().toString());
+            }
             // Add destination to PK and update DID info
             DID did = new DID();
             did.setUsername(alias);
