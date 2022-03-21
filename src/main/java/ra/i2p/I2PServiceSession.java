@@ -101,7 +101,6 @@ class I2PServiceSession extends BaseClientSession implements I2PSessionMuxedList
         if(localI2PPeer!=null && localI2PPeer.getDid().getUsername()!=null) {
             alias = localI2PPeer.getDid().getUsername();
         }
-
         File destinationKeyFile = new File(service.getDirectory(), alias);
         FileReader fileReader = null;
         try {
@@ -166,7 +165,8 @@ class I2PServiceSession extends BaseClientSession implements I2PSessionMuxedList
             }
         }
         i2pSession = socketManager.getSession();
-        if(localI2PPeer.getDid()==null
+        if(localI2PPeer==null
+                || localI2PPeer.getDid()==null
                 || localI2PPeer.getDid().getPublicKey()==null
                 || localI2PPeer.getDid().getPublicKey().getAddress()==null
                 || localI2PPeer.getDid().getPublicKey().getAddress().isEmpty()) {
@@ -175,9 +175,10 @@ class I2PServiceSession extends BaseClientSession implements I2PSessionMuxedList
             String fingerprint = localDestination.calculateHash().toBase64();
             String algorithm = localDestination.getPublicKey().getType().getAlgorithmName();
             // Ensure network is correct
-            localI2PPeer.setNetwork(Network.I2P);
+            localI2PPeer = new NetworkPeer(Network.I2P);
             // Add destination to PK and update DID info
             DID did = new DID();
+            did.setUsername(alias);
             did.setStatus(DID.Status.ACTIVE);
             did.setDescription("DID for I2PSensorSession");
             did.setAuthenticated(true);
