@@ -175,10 +175,13 @@ class I2PServiceSession extends BaseClientSession implements I2PSessionMuxedList
             String fingerprint = localDestination.calculateHash().toBase64();
             String algorithm = localDestination.getPublicKey().getType().getAlgorithmName();
             // Ensure network is correct
-            localI2PPeer = new NetworkPeer(Network.I2P);
+            if(localI2PPeer==null) {
+                localI2PPeer = new NetworkPeer(Network.I2P);
+            }
             // Add destination to PK and update DID info
             DID did = new DID();
             did.setUsername(alias);
+            did.setDidType(DID.DIDType.NODE);
             did.setStatus(DID.Status.ACTIVE);
             did.setDescription("DID for I2PSensorSession");
             did.setAuthenticated(true);
