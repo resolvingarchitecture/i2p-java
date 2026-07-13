@@ -366,6 +366,11 @@ public final class I2PService extends NetworkService {
         // Set dependent services
 //        addDependentService(NotificationService.class);
 
+        LOG.info("I2P Router Configs:");
+        for(Object key : config.keySet()) {
+            LOG.info("\n\t"+key+" = "+config.get(key));
+        }
+
         updateStatus(ServiceStatus.STARTING);
         // Start I2P Router
         LOG.info("Launching I2P Router...");
@@ -395,6 +400,8 @@ public final class I2PService extends NetworkService {
             taskRunner.setPeriodicity(1000L); // Default check every second
             CheckRouterStatus statusChecker = new CheckRouterStatus(this, taskRunner);
             statusChecker.setPeriodicity(30 * 1000L); // Check status every 30 seconds
+            statusChecker.setDelayed(true);
+            statusChecker.setDelayTimeMS(10 * 1000L);
             taskRunner.addTask(statusChecker);
         }
 
@@ -612,12 +619,32 @@ public final class I2PService extends NetworkService {
         if(routerContext==null)
             return; // Router not yet established
         CommSystemFacade.Status reportedStatus = getRouterStatus();
+        boolean statusChanged = false;
         if(i2pRouterStatus != reportedStatus) {
             // Status changed
             i2pRouterStatus = reportedStatus;
             LOG.info("I2P Router Status changed to: "+i2pRouterStatus.name());
             reportRouterStatus();
+            statusChanged = true;
         }
+        CommSystemFacade.Status status = routerContext.commSystem().getStatus();
+        boolean isRunning = routerContext.commSystem().isRunning();
+        int activePeers = routerContext.commSystem().countActivePeers();
+        int activeSendPeers = routerContext.commSystem().countActiveSendPeers();
+        String country = routerContext.commSystem().getOurCountry();
+        boolean isStrictCountry = routerContext.commSystem().isInStrictCountry();
+        Map<String,String> countries = routerContext.commSystem().getCountries();
+        boolean highOutboundCapacity = routerContext.commSystem().haveHighOutboundCapacity();
+        LOG.info("I2P Stats:\n\t"
+                +"status: "+status+"\n\t"
+                +"statusChange: "+statusChanged+"\n\t"
+                +"isRunning: "+isRunning+"\n\t"
+                +activePeers+" activePeers\n\t"
+                +activeSendPeers+" activeSendPeers\n\t"
+                +"Country: "+country+"\n\t"
+                +"IsStrictCountry: "+isStrictCountry+"\n\t"
+                +"Countries: "+countries+"\n\t"
+                +"highOutboundCapacity: "+highOutboundCapacity);
     }
 
     private Integer activePeersCount() {
