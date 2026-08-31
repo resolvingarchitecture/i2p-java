@@ -216,13 +216,12 @@ class I2PServiceSession extends BaseClientSession implements I2PSessionMuxedList
             }
 
             // Only for testing; remove for production
-            String country = service.routerContext.commSystem().getCountry(localDestination.getHash());
-            if(country==null)
-                LOG.info("Local I2P Peer in country: unknown");
-            else
-                LOG.info("Local I2P Peer in country: "+country);
+            if(service.routerContext!=null) {
+                String country = service.routerContext.commSystem().getCountry(localDestination.getHash());
+                LOG.info("Local I2P Peer in country: " + (country == null ? "unknown" : country));
+            }
         }
-        if(service.router.getConfigSetting("i2np.udp.port") != null) {
+        if(service.router!=null && service.router.getConfigSetting("i2np.udp.port") != null) {
             service.getNetworkState().virtualPort = Integer.parseInt(service.router.getConfigSetting("i2np.udp.port"));
         }
         service.getNetworkState().localPeer = localI2PPeer;

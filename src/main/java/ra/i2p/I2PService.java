@@ -49,6 +49,21 @@ public final class I2PService extends NetworkService {
     public static final String OPERATION_ACTIVE_PEERS_COUNT = "ACTIVE_PEERS_COUNT";
 
     /**
+     * How to obtain an I2P router. Config key {@code ra.i2p.mode}.
+     * <ul>
+     *   <li>{@code embedded} (default) - always launch an embedded router;</li>
+     *   <li>{@code local} - always attach to a router already running on this
+     *       host (I2CP on 127.0.0.1:7654);</li>
+     *   <li>{@code auto} - use a local router if one is detected, else embedded.</li>
+     * </ul>
+     * The local/auto paths mirror {@code 1m5-android}'s embedded-vs-local split
+     * and are experimental on the JVM (see TODO.md).
+     */
+    public enum RouterMode { EMBEDDED, LOCAL, AUTO }
+
+    public static final String CONFIG_MODE = "ra.i2p.mode";
+
+    /**
      * 1 = ElGamal-2048 / DSA-1024
      * 2 = ECDH-256 / ECDSA-256
      * 3 = ECDH-521 / ECDSA-521
@@ -71,6 +86,8 @@ public final class I2PService extends NetworkService {
     private Integer restartAttempts = 0;
     private static final Integer RESTART_ATTEMPTS_UNTIL_HARD_RESTART = 3;
     private boolean embedded = true;
+    private RouterMode mode = RouterMode.EMBEDDED;
+    private LocalRouterDetector localRouterDetector = new LocalRouterDetector();
     private boolean isTest = false;
     private TaskRunner taskRunner;
     private Map<String, I2PServiceSession> sessions = new HashMap<>();
@@ -83,6 +100,21 @@ public final class I2PService extends NetworkService {
 
     public I2PService(MessageProducer messageProducer, ServiceStatusObserver observer) {
         super(Network.I2P, messageProducer, observer);
+    }
+
+    /** The network this service carries traffic over. Convenience over {@code getNetworkState().network}. */
+    public Network getNetwork() {
+        return Network.I2P;
+    }
+
+    /** How this service obtained its router once started ({@code EMBEDDED} or {@code LOCAL}). */
+    public RouterMode getRouterMode() {
+        return mode;
+    }
+
+    /** For tests: override how a local router is detected. */
+    public void setLocalRouterDetector(LocalRouterDetector detector) {
+        this.localRouterDetector = detector;
     }
 
     @Override
@@ -243,8 +275,25 @@ public final class I2PService extends NetworkService {
             maxPeers = Integer.parseInt(config.getProperty("ra.i2p.maxPeers"));
         }
         isTest = "true".equals(config.getProperty("ra.i2p.isTest"));
-        // Look for another instance installed
-        if(System.getProperty("i2p.dir.base")==null) {
+
+        // Router mode: embedded (default) | local | auto
+        String modeStr = config.getProperty(CONFIG_MODE, "embedded").trim().toUpperCase();
+        try {
+            mode = RouterMode.valueOf(modeStr);
+        } catch (IllegalArgumentException iae) {
+            LOG.warning("Unknown "+CONFIG_MODE+"="+modeStr+"; defaulting to embedded.");
+            mode = RouterMode.EMBEDDED;
+        }
+        boolean useLocal = mode == RouterMode.LOCAL
+                || (mode == RouterMode.AUTO && localRouterDetector.isLocalRouterRunning());
+        embedded = !useLocal;
+        LOG.info("I2P router mode: "+(embedded ? "EMBEDDED" : "LOCAL ("+localRouterDetector.getHost()+":"+localRouterDetector.getPort()+")"));
+        // An externally-supplied i2p.dir.base means someone else manages the router.
+        if(System.getProperty("i2p.dir.base")!=null) {
+            i2pDir = new File(System.getProperty("i2p.dir.base"));
+            embedded = false;
+            LOG.info("i2p.dir.base supplied externally; using LOCAL router.");
+        } else {
             // Set up I2P Directories within RA Services Directory
             File homeDir = SystemSettings.getUserHomeDir();
             File raDir = new File(homeDir, ".ra");
@@ -262,11 +311,9 @@ public final class I2PService extends NetworkService {
                 LOG.severe("Unable to create "+ I2PService.class.getName()+" directory in home/.ra/services");
                 return false;
             }
-            System.setProperty("i2p.dir.base", i2pDir.getAbsolutePath());
-            embedded = true;
-        } else {
-            i2pDir = new File(System.getProperty("i2p.dir.base"));
-            embedded = false;
+            if(embedded) {
+                System.setProperty("i2p.dir.base", i2pDir.getAbsolutePath());
+            }
         }
 
         // Config Directory
@@ -315,9 +362,15 @@ public final class I2PService extends NetworkService {
             config.setProperty("i2p.dir.app", i2pAppDir.getAbsolutePath());
         }
 
-        // Running Internal I2P Router
-        System.setProperty(I2PClient.PROP_TCP_HOST, "internal");
-        System.setProperty(I2PClient.PROP_TCP_PORT, "internal");
+        if(embedded) {
+            // I2CP served internally by the embedded router (no TCP socket).
+            System.setProperty(I2PClient.PROP_TCP_HOST, "internal");
+            System.setProperty(I2PClient.PROP_TCP_PORT, "internal");
+        } else {
+            // Attach to the local router over I2CP.
+            System.setProperty(I2PClient.PROP_TCP_HOST, localRouterDetector.getHost());
+            System.setProperty(I2PClient.PROP_TCP_PORT, String.valueOf(localRouterDetector.getPort()));
+        }
 
         // Merge router.config files
         mergeRouterConfig(null);
@@ -372,26 +425,35 @@ public final class I2PService extends NetworkService {
         }
 
         updateStatus(ServiceStatus.STARTING);
-        // Start I2P Router
-        LOG.info("Launching I2P Router...");
-        RouterLaunch.main(null);
-        List<RouterContext> routerContexts = RouterContext.listContexts();
-        routerContext = routerContexts.get(0);
-        router = routerContext.router();
-        // TODO: Give end users ability to change this
+        if(embedded) {
+            // Start an embedded I2P Router
+            LOG.info("Launching embedded I2P Router...");
+            RouterLaunch.main(null);
+            List<RouterContext> routerContexts = RouterContext.listContexts();
+            routerContext = routerContexts.get(0);
+            router = routerContext.router();
+            // TODO: Give end users ability to change this
 //            if(config.params.get(Router.PROP_HIDDEN)!=null) {
 //                router.saveConfig(Router.PROP_HIDDEN, (String)config.params.get(Router.PROP_HIDDEN));
 //            }
 //            router.saveConfig(Router.PROP_HIDDEN, "false");
-        LOG.info("I2P Router - Hidden Mode: "+router.getConfigSetting(Router.PROP_HIDDEN));
-        for(String param : router.getConfigMap().keySet()) {
-            getNetworkState().params.put(param, router.getConfigSetting(param));
-        }
-        router.setKillVMOnEnd(false);
+            LOG.info("I2P Router - Hidden Mode: "+router.getConfigSetting(Router.PROP_HIDDEN));
+            for(String param : router.getConfigMap().keySet()) {
+                getNetworkState().params.put(param, router.getConfigSetting(param));
+            }
+            router.setKillVMOnEnd(false);
 //        routerContext.addShutdownTask(this::shutdown);
-        // TODO: Hard code to INFO for now for troubleshooting; need to move to configuration
-        routerContext.logManager().setDefaultLimit(Log.STR_INFO);
-        routerContext.logManager().setFileSize(100000000); // 100 MB
+            // TODO: Hard code to INFO for now for troubleshooting; need to move to configuration
+            routerContext.logManager().setDefaultLimit(Log.STR_INFO);
+            routerContext.logManager().setFileSize(100000000); // 100 MB
+        } else {
+            // Local router: no RouterContext/Router - we are an external I2CP client.
+            // EXPERIMENTAL on the JVM: status is inferred from session liveness
+            // (see checkRouterStats) rather than the router's CommSystem. Field
+            // testing needed - see TODO.md.
+            LOG.info("Using local I2P router over I2CP at "
+                    + localRouterDetector.getHost() + ":" + localRouterDetector.getPort());
+        }
 
         Wait.aMs(500); // Give the router a bit of breathing room before launching tasks
 
@@ -427,8 +489,19 @@ public final class I2PService extends NetworkService {
 
     @Override
     public boolean restart() {
+        if(!embedded) {
+            // Local router: we don't own its lifecycle. Re-establish our sessions.
+            LOG.info("Local I2P router mode: re-establishing sessions instead of restarting the router.");
+            for(NetworkClientSession s : sessions.values()) {
+                s.disconnect();
+                s.close();
+            }
+            sessions.clear();
+            establishSession(null, true);
+            return true;
+        }
         if(router==null) {
-            router = routerContext.router();
+            router = routerContext==null ? null : routerContext.router();
             if(router==null) {
                 LOG.severe("Unable to restart I2P Router. Router instance not found in RouterContext.");
                 return false;
@@ -600,10 +673,10 @@ public final class I2PService extends NetworkService {
         }
         if(getNetworkState().networkStatus==NetworkStatus.CONNECTED && sessions.size()==0) {
             LOG.info("Network Connected and no Sessions.");
-            if(routerContext.commSystem().isInStrictCountry()) {
+            if(routerContext!=null && routerContext.commSystem().isInStrictCountry()) {
                 LOG.warning("This peer is in a 'strict' country defined by I2P.");
             }
-            if(routerContext.router().isHidden()) {
+            if(routerContext!=null && routerContext.router().isHidden()) {
                 LOG.warning("I2P Router is in Hidden mode. I2P Service setting for hidden mode: "+config.getProperty("ra.i2p.hidden"));
             }
             LOG.info("Establishing Session to speed up future outgoing messages...");
@@ -616,8 +689,23 @@ public final class I2PService extends NetworkService {
     }
 
     public void checkRouterStats() {
-        if(routerContext==null)
-            return; // Router not yet established
+        if(routerContext==null) {
+            if(!embedded) {
+                // Local router: infer connectivity from session liveness.
+                boolean connected = false;
+                for(NetworkClientSession s : sessions.values()) {
+                    if(s.isConnected()) { connected = true; break; }
+                }
+                NetworkStatus current = getNetworkState().networkStatus;
+                if(connected && current != NetworkStatus.CONNECTED) {
+                    updateNetworkStatus(NetworkStatus.CONNECTED);
+                } else if(!connected && sessions.isEmpty() && current != NetworkStatus.CONNECTING) {
+                    updateNetworkStatus(NetworkStatus.CONNECTING);
+                    establishSession(null, true);
+                }
+            }
+            return; // no embedded RouterContext
+        }
         CommSystemFacade.Status reportedStatus = getRouterStatus();
         boolean statusChanged = false;
         if(i2pRouterStatus != reportedStatus) {
@@ -648,7 +736,16 @@ public final class I2PService extends NetworkService {
     }
 
     private Integer activePeersCount() {
-        return routerContext.commSystem().countActivePeers();
+        return routerContext==null ? peers.size() : routerContext.commSystem().countActivePeers();
+    }
+
+    /** These router introspections require the embedded CommSystem; unavailable in local mode. */
+    private boolean commSystemUnavailable(String what) {
+        if(routerContext==null) {
+            LOG.fine("CommSystem unavailable in local router mode; cannot determine "+what+".");
+            return true;
+        }
+        return false;
     }
 
     private Boolean unreachable(NetworkPeer networkPeer) {
@@ -656,12 +753,14 @@ public final class I2PService extends NetworkService {
             LOG.warning("Network Peer with address is required to determine if peer is unreachable.");
             return false;
         }
+        if(commSystemUnavailable("unreachable")) return false;
         I2PServiceSession session = establishSession("default", true);
         Destination dest = session.lookupDest(networkPeer.getDid().getPublicKey().getAddress());
         return routerContext.commSystem().wasUnreachable(dest.getHash());
     }
 
     private Boolean inStrictCountry() {
+        if(commSystemUnavailable("inStrictCountry")) return false;
         return routerContext.commSystem().isInStrictCountry();
     }
 
@@ -670,6 +769,7 @@ public final class I2PService extends NetworkService {
             LOG.warning("Network Peer with address is required to determine if peer is in strict country.");
             return false;
         }
+        if(commSystemUnavailable("inStrictCountry(peer)")) return false;
         I2PServiceSession session = establishSession("default", true);
         Destination dest = session.lookupDest(networkPeer.getDid().getPublicKey().getAddress());
         return routerContext.commSystem().isInStrictCountry(dest.getHash());
@@ -680,6 +780,7 @@ public final class I2PService extends NetworkService {
             LOG.warning("Network Peer with address is required to determine if peer is backlogged.");
             return false;
         }
+        if(commSystemUnavailable("backlogged")) return false;
         I2PServiceSession session = establishSession("default", true);
         Destination dest = session.lookupDest(networkPeer.getDid().getPublicKey().getAddress());
         return routerContext.commSystem().isBacklogged(dest.getHash());
@@ -690,6 +791,7 @@ public final class I2PService extends NetworkService {
             LOG.warning("Network Peer with address is required to determine if peer is established.");
             return false;
         }
+        if(commSystemUnavailable("established")) return false;
         I2PServiceSession session = establishSession("default", true);
         Destination dest = session.lookupDest(networkPeer.getDid().getPublicKey().getAddress());
         return routerContext.commSystem().isEstablished(dest.getHash());
@@ -700,6 +802,7 @@ public final class I2PService extends NetworkService {
             LOG.warning("Network Peer with address is required to determine country of peer.");
             return "NoPeer";
         }
+        if(commSystemUnavailable("country")) return "unknown";
         I2PServiceSession session = establishSession("default", true);
         Destination dest = session.lookupDest(networkPeer.getDid().getPublicKey().getAddress());
         return routerContext.commSystem().getCountry(dest.getHash());

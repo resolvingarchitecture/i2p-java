@@ -1,8 +1,17 @@
 # I2P Service
-Invisible Internet Project (I2P) Service. Wraps an I2P Router as a service so that it can be easily managed
-and used by 3rd party decentralized applications. Currently, only an embedded I2P router is supported which
-may conflict with any already running I2P router due to port conflicts. Future support will include detection of and connecting
-to a local instance of the I2P Router.
+Invisible Internet Project (I2P) Service. Wraps an I2P router as a
+`ra.common.network.NetworkService` so it can be managed and used by decentralized
+applications - in particular as the I2P **protocol service** for `1m5-core-java`
+(`1m5-core` registers `ra.i2p.I2PService`, its `RoutingService` discovers it by
+type and routes external hops to it).
+
+Two router modes (`ra.i2p.mode` = `embedded` | `local` | `auto`): launch an
+**embedded** `net.i2p:router` in-process (default), or attach to a router already
+running on this host over I2CP (`127.0.0.1:7654`). The local/auto path mirrors
+`1m5-android`'s embedded-vs-local split and is experimental on the JVM - see
+[`TODO.md`](TODO.md).
+
+See [`DESIGN.md`](DESIGN.md) for the model and message flow.
 
 ## Build Notes
 - Required certificates from the following two directories in the i2p.i2p project (I2P Router core)
@@ -29,6 +38,14 @@ I2P Router Control via: https://github.com/i2p/i2p.itoopie when in local mode.
 - https://www.irongeek.com/i.php?page=security/i2p-identify-service-hosts-eepsites
 
 ## Version Notes
+
+### 1.7.1
+- Router-mode selection: `ra.i2p.mode` = `embedded` (default) | `local` | `auto`,
+  plus `LocalRouterDetector` (I2CP loopback probe). Structure follows
+  `1m5-android`'s `I2P` / `I2PEmbedded` / `I2PLocal`. Embedded path unchanged;
+  `local` needs field testing (see `TODO.md`).
+- `getNetwork()` convenience; `routerContext` / `router` uses guarded for local mode.
+- Added `DESIGN.md`, `TODO.md`.
 
 ### 0.9.50.1
 - upgraded to 0.9.50 moving versioning to reflect I2P version

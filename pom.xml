@@ -5,7 +5,7 @@
 
     <groupId>resolvingarchitecture</groupId>
 	<artifactId>i2p</artifactId>
-	<version>1.7.0.1</version>
+	<version>1.7.1</version>
 
 	<packaging>jar</packaging>
 
