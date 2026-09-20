@@ -444,6 +444,11 @@ public final class I2PService extends NetworkService {
             // finishes, is already safe - it naturally picks up router/routerContext once
             // launchEmbeddedRouterAsync sets them, on whichever later tick that lands on.
             LOG.info("Launching embedded I2P Router (async)...");
+            // Report "starting" the instant the launch kicks off, not whenever the status
+            // checker's own periodic tick happens to catch up - a host's status display (the
+            // 1m5-nostr-node-admin dashboard) should never show a freshly kicked-off router as
+            // flatly "down" for however long bootstrap takes.
+            updateNetworkStatus(NetworkStatus.CONNECTING);
             Thread launchThread = new Thread(this::launchEmbeddedRouterAsync, "I2PService-RouterLaunchThread");
             launchThread.setDaemon(true);
             launchThread.start();
@@ -722,6 +727,23 @@ public final class I2PService extends NetworkService {
     }
 
     public void checkRouterStats() {
+        if(routerContext==null && embedded) {
+            // launchEmbeddedRouterAsync() only assigns routerContext/router AFTER
+            // RouterLaunch.main(null) returns - but that call blocks on the router's own
+            // network-dependent Timestamper.waitForInitialization() (see that method's own
+            // comment), which can take a while. The Router itself - and its RouterContext,
+            // registered into I2P's own static registry as soon as the Router object is
+            // constructed - is fully alive well before then (confirmed via a live thread dump:
+            // JobQueue/NTCP/Reseed/RouterWatchdog all running normally while routerContext was
+            // still null here). Picking it up directly, rather than waiting on the launch
+            // thread's own post-main() code, is what makes this periodic checker actually see a
+            // freshly embedded router instead of silently no-op'ing on every tick below.
+            List<RouterContext> liveContexts = RouterContext.listContexts();
+            if(!liveContexts.isEmpty()) {
+                routerContext = liveContexts.get(0);
+                router = routerContext.router();
+            }
+        }
         if(routerContext==null) {
             if(!embedded) {
                 // Local router: infer connectivity from session liveness.
