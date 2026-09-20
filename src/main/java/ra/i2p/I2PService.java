@@ -7,7 +7,6 @@ import net.i2p.router.CommSystemFacade;
 import net.i2p.router.Router;
 import net.i2p.router.RouterContext;
 import net.i2p.router.RouterLaunch;
-import net.i2p.util.FileUtil;
 import net.i2p.util.Log;
 import net.i2p.util.OrderedProperties;
 import net.i2p.util.SystemVersion;
@@ -24,11 +23,8 @@ import ra.common.Wait;
 import ra.common.tasks.TaskRunner;
 
 import java.io.*;
-import java.net.URISyntaxException;
-import java.net.URL;
+import java.nio.file.Files;
 import java.util.*;
-import java.util.jar.JarEntry;
-import java.util.jar.JarFile;
 import java.util.logging.Logger;
 
 /**
@@ -851,108 +847,71 @@ public final class I2PService extends NetworkService {
         }
     }
 
+    // Fixed, curated trust anchors bundled as classpath resources under certificates/{reseed,ssl}/
+    // - a hand-picked list of known reseed/SSL certs, not something a deployment ever adds to, so
+    // hardcoding the filenames is appropriate (not a magic-number smell): it replaces enumerating
+    // them at runtime, which is exactly what broke packaging-shape independence below.
+    private static final String[] RESEED_CERT_NAMES = {
+            "backup_at_mail.i2p.crt", "bugme_at_mail.i2p.crt", "creativecowpat_at_mail.i2p.crt",
+            "echelon_at_mail.i2p.crt", "hottuna_at_mail.i2p.crt", "igor_at_novg.net.crt",
+            "lazygravy_at_mail.i2p.crt", "meeh_at_mail.i2p.crt", "reseedi2pnetin_at_mail.i2p.crt",
+    };
+    private static final String[] SSL_CERT_NAMES = {
+            "echelon.reseed2017.crt", "i2p.mooo.com.crt", "i2pseed.creativecowpat.net.crt",
+            "isrgrootx1.crt", "reseed.onion.im.crt",
+    };
+
     /**
-     *  Copy all certificates found in certificates on classpath
-     *  into i2pDir/certificates
+     *  Copy all certificates found in certificates on classpath into i2pDir/certificates.
+     *
+     *  <p>Android provisions these separately and never calls this (see the early return below -
+     *  unchanged from before). For every other case, this uses {@code getResourceAsStream}
+     *  exclusively, which works identically whether this class is loaded from an unpacked
+     *  classpath directory (running in an IDE/test), a plain standalone jar, or - the case an
+     *  earlier version of this method got wrong - a jar nested inside another jar (a Spring Boot
+     *  repackaged fat jar). That earlier version tried to detect which of these cases it was in
+     *  by inspecting {@code getProtectionDomain().getCodeSource().getLocation()} as a {@link File}
+     *  and falling back to {@code new File(resource.toURI())} otherwise; the fallback throws
+     *  {@code IllegalArgumentException: URI is not hierarchical} for a nested-jar resource URI,
+     *  which is exactly what happens for any host that repackages this into a fat jar (confirmed
+     *  by actually hitting that exception, not assumed) - there was no detection needed at all
+     *  once every case can just ask the classloader for a stream.
      *
      *  @param reseedCertificates destination directory for reseed certificates
      *  @param sslCertificates destination directory for ssl certificates
      */
-    private boolean copyCertificatesToBaseDir(File reseedCertificates, File sslCertificates) {
-        if(!SystemVersion.isAndroid()) {
-            String jarPath = getClass().getProtectionDomain().getCodeSource().getLocation().getPath();
-            final File jarFile = new File(jarPath);
-            if (jarFile.isFile()) {
-                try {
-                    final JarFile jar = new JarFile(jarFile);
-                    JarEntry entry;
-                    File f = null;
-                    final Enumeration<JarEntry> entries = jar.entries(); //gives ALL entries in jar
-                    while (entries.hasMoreElements()) {
-                        entry = entries.nextElement();
-                        final String name = entry.getName();
-                        if (name.startsWith("certificates/reseed/")) { //filter according to the path
-                            if (!name.endsWith("/")) {
-                                String fileName = name.substring(name.lastIndexOf("/") + 1);
-                                LOG.info("fileName to save: " + fileName);
-                                f = new File(reseedCertificates, fileName);
-                            }
-                        }
-                        if (name.startsWith("certificates/ssl/")) {
-                            if (!name.endsWith("/")) {
-                                String fileName = name.substring(name.lastIndexOf("/") + 1);
-                                LOG.info("fileName to save: " + fileName);
-                                f = new File(sslCertificates, fileName);
-                            }
-                        }
-                        if (f != null) {
-                            boolean fileReadyToSave = false;
-                            if (!f.exists() && f.createNewFile()) fileReadyToSave = true;
-                            else if (f.exists() && f.delete() && f.createNewFile()) fileReadyToSave = true;
-                            if (fileReadyToSave) {
-                                FileOutputStream fos = new FileOutputStream(f);
-                                byte[] byteArray = new byte[1024];
-                                int i;
-                                InputStream is = getClass().getClassLoader().getResourceAsStream(name);
-                                //While the input stream has bytes
-                                while ((i = is.read(byteArray)) > 0) {
-                                    //Write the bytes to the output stream
-                                    fos.write(byteArray, 0, i);
-                                }
-                                //Close streams to prevent errors
-                                is.close();
-                                fos.close();
-                                f = null;
-                            } else {
-                                LOG.warning("Unable to save file from 1M5 jar and is required: " + name);
-                                return false;
-                            }
-                        }
-                    }
-                    jar.close();
-                } catch (IOException e) {
-                    LOG.warning(e.getLocalizedMessage());
-                    return false;
-                }
-            } else {
-                // called while testing in an IDE
-                URL resource = I2PService.class.getClassLoader().getResource(".");
-                File file = null;
-                try {
-                    file = new File(resource.toURI());
-                } catch (URISyntaxException e) {
-                    LOG.warning("Unable to access I2P resource directory.");
-                    return false;
-                }
-                File[] resFolderFiles = file.listFiles();
-                File certResFolder = null;
-                for (File f : resFolderFiles) {
-                    if ("certificates".equals(f.getName())) {
-                        certResFolder = f;
-                        break;
-                    }
-                }
-                if (certResFolder != null) {
-                    File[] folders = certResFolder.listFiles();
-                    for (File folder : folders) {
-                        if ("reseed".equals(folder.getName())) {
-                            File[] reseedCerts = folder.listFiles();
-                            for (File reseedCert : reseedCerts) {
-                                FileUtil.copy(reseedCert, reseedCertificates, true, false);
-                            }
-                        } else if ("ssl".equals(folder.getName())) {
-                            File[] sslCerts = folder.listFiles();
-                            for (File sslCert : sslCerts) {
-                                FileUtil.copy(sslCert, sslCertificates, true, false);
-                            }
-                        }
-                    }
-                    return true;
-                }
+    // Package-private (not private) so I2PServiceCertificatesTest can exercise it directly,
+    // without needing a real embedded router bootstrap just to reach it.
+    boolean copyCertificatesToBaseDir(File reseedCertificates, File sslCertificates) {
+        if (SystemVersion.isAndroid()) {
+            return true;
+        }
+        boolean ok = true;
+        for (String name : RESEED_CERT_NAMES) {
+            ok &= copyResourceCertificate("certificates/reseed/" + name, new File(reseedCertificates, name));
+        }
+        for (String name : SSL_CERT_NAMES) {
+            ok &= copyResourceCertificate("certificates/ssl/" + name, new File(sslCertificates, name));
+        }
+        return ok;
+    }
+
+    boolean copyResourceCertificate(String resourcePath, File dest) {
+        if (dest.exists() && !dest.delete()) {
+            LOG.warning("could not remove existing certificate file: " + dest);
+            return false;
+        }
+        try (InputStream is = getClass().getClassLoader().getResourceAsStream(resourcePath)) {
+            if (is == null) {
+                LOG.warning("certificate resource not found on classpath: " + resourcePath);
                 return false;
             }
+            Files.copy(is, dest.toPath());
+            return true;
+        } catch (IOException e) {
+            LOG.warning("failed to copy certificate " + resourcePath + ": " + e.getLocalizedMessage());
+            return false;
         }
-        return true;
     }
 
     public static void main(String[] args) {
