@@ -25,6 +25,7 @@ import ra.common.tasks.TaskRunner;
 import java.io.*;
 import java.nio.file.Files;
 import java.util.*;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
@@ -72,8 +73,11 @@ public final class I2PService extends NetworkService {
 
     // I2P Router and Context
     private File i2pDir;
-    RouterContext routerContext;
-    Router router;
+    // volatile: launchEmbeddedRouterAsync's background thread writes these; checkRouterStats()
+    // (running on taskRunnerThread) and the rest of this class's own callers read them - both
+    // unsynchronized before this class had two threads touching them at all.
+    volatile RouterContext routerContext;
+    volatile Router router;
     protected CommSystemFacade.Status i2pRouterStatus;
 
     private Thread taskRunnerThread;
@@ -422,26 +426,27 @@ public final class I2PService extends NetworkService {
 
         updateStatus(ServiceStatus.STARTING);
         if(embedded) {
-            // Start an embedded I2P Router
-            LOG.info("Launching embedded I2P Router...");
-            RouterLaunch.main(null);
-            List<RouterContext> routerContexts = RouterContext.listContexts();
-            routerContext = routerContexts.get(0);
-            router = routerContext.router();
-            // TODO: Give end users ability to change this
-//            if(config.params.get(Router.PROP_HIDDEN)!=null) {
-//                router.saveConfig(Router.PROP_HIDDEN, (String)config.params.get(Router.PROP_HIDDEN));
-//            }
-//            router.saveConfig(Router.PROP_HIDDEN, "false");
-            LOG.info("I2P Router - Hidden Mode: "+router.getConfigSetting(Router.PROP_HIDDEN));
-            for(String param : router.getConfigMap().keySet()) {
-                getNetworkState().params.put(param, router.getConfigSetting(param));
-            }
-            router.setKillVMOnEnd(false);
-//        routerContext.addShutdownTask(this::shutdown);
-            // TODO: Hard code to INFO for now for troubleshooting; need to move to configuration
-            routerContext.logManager().setDefaultLimit(Log.STR_INFO);
-            routerContext.logManager().setFileSize(100000000); // 100 MB
+            // RouterLaunch.main(null) -> Router.main(null) -> new Router(); router.runRouter();
+            // (confirmed by decompiling both - RouterLaunch is a one-line wrapper around
+            // Router.main, which is itself just those two calls) is not the quick
+            // "spawn background threads and return" call it might look like: runRouter()'s own
+            // bytecode calls Timestamper.waitForInitialization() synchronously, a genuinely
+            // network-dependent wait. Calling it directly on this thread - which ServiceBus's
+            // own registerAndStartService, and therefore every synchronous caller up to and
+            // including a host's own startup, blocks on - means a slow/stalled network
+            // reachability check (confirmed happening for 20+ minutes in one sandboxed test)
+            // stalls the entire host's startup with it. 1m5-android's own I2PEmbedded never
+            // hits this problem despite calling the identical underlying runRouter(), because it
+            // wraps the whole launch in an async task (app.runAsynch(new Starter(app), ...)) and
+            // returns from its own start() immediately - this does the same. checkRouterStats()
+            // already tolerates routerContext being null (used today for the "local router"
+            // case), so starting the periodic status-check task below immediately, before this
+            // finishes, is already safe - it naturally picks up router/routerContext once
+            // launchEmbeddedRouterAsync sets them, on whichever later tick that lands on.
+            LOG.info("Launching embedded I2P Router (async)...");
+            Thread launchThread = new Thread(this::launchEmbeddedRouterAsync, "I2PService-RouterLaunchThread");
+            launchThread.setDaemon(true);
+            launchThread.start();
         } else {
             // Local router: no RouterContext/Router - we are an external I2CP client.
             // EXPERIMENTAL on the JVM: status is inferred from session liveness
@@ -450,8 +455,6 @@ public final class I2PService extends NetworkService {
             LOG.info("Using local I2P router over I2CP at "
                     + localRouterDetector.getHost() + ":" + localRouterDetector.getPort());
         }
-
-        Wait.aMs(500); // Give the router a bit of breathing room before launching tasks
 
         if(taskRunner==null) {
             taskRunner = new TaskRunner(1, 1);
@@ -471,6 +474,40 @@ public final class I2PService extends NetworkService {
         updateStatus(ServiceStatus.RUNNING);
 
         return true;
+    }
+
+    /**
+     * The actual embedded-router launch, run on its own daemon thread by {@link #start(Properties)}
+     * (see that method's own comment on why - {@code runRouter()}'s synchronous, network-dependent
+     * {@code Timestamper.waitForInitialization()} call must never block a caller that expects
+     * {@code start()} to return promptly). Exceptions are caught and logged here explicitly,
+     * since an uncaught exception on this thread would otherwise only surface via the JVM's
+     * default handler, easy to miss.
+     */
+    private void launchEmbeddedRouterAsync() {
+        try {
+            RouterLaunch.main(null);
+            List<RouterContext> routerContexts = RouterContext.listContexts();
+            routerContext = routerContexts.get(0);
+            router = routerContext.router();
+            // TODO: Give end users ability to change this
+//            if(config.params.get(Router.PROP_HIDDEN)!=null) {
+//                router.saveConfig(Router.PROP_HIDDEN, (String)config.params.get(Router.PROP_HIDDEN));
+//            }
+//            router.saveConfig(Router.PROP_HIDDEN, "false");
+            LOG.info("I2P Router - Hidden Mode: "+router.getConfigSetting(Router.PROP_HIDDEN));
+            for(String param : router.getConfigMap().keySet()) {
+                getNetworkState().params.put(param, router.getConfigSetting(param));
+            }
+            router.setKillVMOnEnd(false);
+//        routerContext.addShutdownTask(this::shutdown);
+            // TODO: Hard code to INFO for now for troubleshooting; need to move to configuration
+            routerContext.logManager().setDefaultLimit(Log.STR_INFO);
+            routerContext.logManager().setFileSize(100000000); // 100 MB
+            LOG.info("Embedded I2P Router launch completed.");
+        } catch (RuntimeException e) {
+            LOG.log(Level.SEVERE, "Embedded I2P Router launch failed", e);
+        }
     }
 
     @Override
