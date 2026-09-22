@@ -434,6 +434,9 @@ class I2PServiceSession extends BaseClientSession implements I2PSessionMuxedList
 
             // Update local cache
             service.addPeer(origination);
+
+            advanceToNextLocalHop(envelope);
+
             if(envelope.markerPresent("NetOpRes")) {
                 List<NetworkPeer> recommendedPeers = (List<NetworkPeer>) envelope.getValue(NetworkPeer.class.getName());
                 if (recommendedPeers != null) {
@@ -478,6 +481,32 @@ class I2PServiceSession extends BaseClientSession implements I2PSessionMuxedList
             LOG.warning("Datagram failed verification: " + e.getLocalizedMessage());
         } catch (Exception e) {
             LOG.severe("Error processing datagram: " + e.getLocalizedMessage());
+        }
+    }
+
+    /**
+     * Real finding: {@code envelope.getRoute()}, on arrival, is the SENDER's
+     * own outer hop ("go to the I2P adapter and SEND") - meaningless to this
+     * (receiving) node, since it names the sender's local dispatch, not an
+     * operation this node can act on. Any hop the sender pushed underneath
+     * that one (its actual intent for us - e.g. run a specific business
+     * operation) survives serialization on the routing slip ({@code
+     * Envelope#toMap} includes both {@code route} and the full remaining
+     * {@code DynamicRoutingSlip}), but was never being consumed here before
+     * this fix - the generic inbound fallback just re-injected the envelope
+     * with the stale outer route still active, which would either mis-
+     * dispatch locally (to a same-named channel, if this node happens to run
+     * one too) or silently drop/hang (if it doesn't). Ratchets to the next
+     * remaining hop so {@code route} reflects what this node should actually
+     * do - a no-op when there isn't one (the ordinary single-hop case).
+     * Extracted as a pure, static, package-visible method (no {@code
+     * I2PSession}/datagram dependency) so it's unit-testable without a live
+     * I2P network - see {@code I2PServiceSessionRedispatchTest}.
+     */
+    static void advanceToNextLocalHop(Envelope envelope) {
+        if (envelope.getDynamicRoutingSlip() != null
+                && envelope.getDynamicRoutingSlip().peekAtNextRoute() != null) {
+            envelope.ratchet();
         }
     }
 
