@@ -218,6 +218,20 @@ public final class I2PService extends NetworkService {
         return session.send(envelope);
     }
 
+    /**
+     * This router's own default-session destination (base64), the address a
+     * peer needs to reach it - {@code null} only if the router itself failed
+     * to start. Forces the default session open on first call, the same
+     * lazy-establish {@link #sendOut} already triggers; a receive-only
+     * service (never calling {@code sendOut} itself) still needs this to
+     * become reachable at all, so callers that only ever receive should call
+     * it once at startup rather than assuming a session already exists.
+     */
+    public String getLocalDestination() {
+        I2PServiceSession session = establishSession(null, true);
+        return session != null ? session.getAddress() : null;
+    }
+
     public File getDirectory() {
         return i2pDir;
     }
