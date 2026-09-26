@@ -435,7 +435,11 @@ public final class I2PService extends NetworkService {
 
         LOG.info("I2P Router Configs:");
         for(Object key : config.keySet()) {
-            LOG.info("\n\t"+key+" = "+config.get(key));
+            String keyStr = String.valueOf(key).toLowerCase();
+            boolean sensitive = keyStr.contains("pass") || keyStr.contains("secret")
+                    || keyStr.contains("token") || keyStr.contains("xpub")
+                    || (keyStr.contains("key") && !keyStr.endsWith(".dir") && !keyStr.contains("keychain"));
+            LOG.info("\n\t"+key+" = "+(sensitive ? "[REDACTED]" : config.get(key)));
         }
 
         updateStatus(ServiceStatus.STARTING);
