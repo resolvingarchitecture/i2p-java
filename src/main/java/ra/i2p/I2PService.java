@@ -190,7 +190,19 @@ public final class I2PService extends NetworkService {
         }
     }
 
-    private I2PServiceSession establishSession(String address, Boolean autoConnect) {
+    /**
+     * Synchronized: two callers racing here (seen in practice - a periodic
+     * status-check task and an external caller both establishing "default"
+     * around the same moment) each saw {@code sessions.get(address)==null}
+     * before either had stored anything, so both created and opened their
+     * own {@link I2PServiceSession} for the same underlying destination
+     * (deterministic from the persisted key file) - the router's client
+     * manager then rejected the second's connect as a duplicate destination
+     * registration, disconnecting it. One session per key, created and
+     * connected exactly once, is the actual invariant this method exists to
+     * provide.
+     */
+    private synchronized I2PServiceSession establishSession(String address, Boolean autoConnect) {
         if(address==null) {
             address = "default";
         }
