@@ -10,7 +10,7 @@
 	<packaging>jar</packaging>
 
 	<name>ra-i2p</name>
-	<url>https://resolvingarchitecture.dev</url>
+	<url>https://resolvingarchitecture.io</url>
 	<description>Resolving Architecture - I2P Java</description>
 	<inceptionYear>2017</inceptionYear>
 
@@ -23,7 +23,7 @@
 	<developers>
 		<developer>
 			<name>Brian Taylor</name>
-			<email>brian@resolvingarchitecture.dev</email>
+			<email>brian@resolvingarchitecture.io</email>
 		</developer>
 	</developers>
 
